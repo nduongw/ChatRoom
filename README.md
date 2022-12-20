@@ -13,7 +13,7 @@ Author: Dung Harry
 	Compile and run:
 		gcc -c $(mysql_config --cflags) connector.c $(mysql_config --libs)
 		gcc -c $(mysql_config --cflags) fetch_data.c $(mysql_config --libs)
-		gcc -o mysql $(mysql_config --cflags) fetch_data.o connector.o main.c $(mysql_config --libs)
+		gcc -o mysql $(mysql_config --cflags) fetch_data.o connector.o check.c $(mysql_config --libs)
 
 		./mysql
 
