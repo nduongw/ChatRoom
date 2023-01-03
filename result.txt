@@ -1,7 +1,0 @@
-Have 1 rows are fetched, as following: 
----The row 1:
-Field id: 1
-Field userName: phung ngoc vinh
-Field pass: vinh123
-Field status: 2
-

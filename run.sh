@@ -1,0 +1,1 @@
+gcc connect_db.c -l sqlite3 -o db
