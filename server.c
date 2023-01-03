@@ -10,8 +10,6 @@
 #include <sqlite3.h> 
 
 #define MAX_SIZE 1024
-Node *linked_list = NULL;
-
 
 static int callback(void *data, int num_cols, char **rows, char **col_name){
    int i;
