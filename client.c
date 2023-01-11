@@ -8,6 +8,14 @@
 
 #define MAX_SIZE 1024
 
+int client_sock;
+struct sockaddr_in server_addr;
+socklen_t addr_size;
+char received_message[1024];
+char send_message[1024];
+int n;
+int is_login = 0;
+
 int is_valid_address(char *ipAddress) {
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
@@ -37,6 +45,90 @@ void decode_password(char *password, char *digit_string, char *alpha_string) {
     alpha_string[j] = '\0';
 }
 
+void handle_login(char username[], char password[]) {
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s", received_message);
+
+    fgets(username, MAX_SIZE, stdin);
+    fflush(stdin);
+    bzero(send_message, 1024);
+    strcpy(send_message, username);
+    send(client_sock, send_message, strlen(send_message), 0);
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s", received_message);
+
+    fgets(password, MAX_SIZE, stdin);
+    fflush(stdin);
+    bzero(send_message, 1024);
+    strcpy(send_message, password);
+    send(client_sock, send_message, strlen(send_message), 0);
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s\n", received_message);
+
+    if (strcmp(received_message, "Register successful") == 0) {
+        is_login = 1;
+    }
+
+    bzero(send_message, 1024);
+    strcpy(send_message, "Done\n");
+    send(client_sock, send_message, strlen(send_message), 0);
+}
+
+void handle_register(char username[], char password[], char name[]) {
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s", received_message);
+
+    fgets(username, MAX_SIZE, stdin);
+    fflush(stdin);
+    bzero(send_message, 1024);
+    strcpy(send_message, username);
+    send(client_sock, send_message, strlen(send_message), 0);
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s", received_message);
+
+    fgets(password, MAX_SIZE, stdin);
+    fflush(stdin);
+    bzero(send_message, 1024);
+    strcpy(send_message, password);
+    send(client_sock, send_message, strlen(send_message), 0);
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s", received_message);
+
+    fgets(name, MAX_SIZE, stdin);
+    fflush(stdin);
+    bzero(send_message, 1024);
+    strcpy(send_message, name);
+    send(client_sock, send_message, strlen(send_message), 0);
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s\n", received_message);
+
+    bzero(send_message, 1024);
+    strcpy(send_message, "Done\n");
+    send(client_sock, send_message, strlen(send_message), 0);
+}
+
+void handle_invalid_input() {
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, MAX_SIZE, 0);
+    printf("%s: ", received_message);
+
+    bzero(send_message, 1024);
+    strcpy(send_message, "Done\n");
+    send(client_sock, send_message, strlen(send_message), 0);
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("Invalid parameters\n");
@@ -54,13 +146,6 @@ int main(int argc, char *argv[]) {
         printf("Invalid port number");
         return -1;
     }
-
-    int client_sock;
-    struct sockaddr_in server_addr;
-    socklen_t addr_size;
-    char received_message[1024];
-    char send_message[1024];
-    int n;
 
     client_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (client_sock < 0) {
@@ -80,84 +165,37 @@ int main(int argc, char *argv[]) {
 
     char username[MAX_SIZE];
     char password[MAX_SIZE];
+    char name[MAX_SIZE];
+    char choice[MAX_SIZE];
 
     bzero(send_message, 1024);
     strcpy(send_message, "Hello from client");
     send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s: ", received_message);
     
     while(1) {
-        while(1) {
-            fgets(username, MAX_SIZE, stdin);
-            fflush(stdin);
+        bzero(received_message, 1024);
+        recv(client_sock, received_message, MAX_SIZE, 0);
+        printf("%s: ", received_message);
 
-            bzero(send_message, 1024);
-            strcpy(send_message, username);
-            send(client_sock, send_message, strlen(send_message), 0);
-            
-            bzero(received_message, 1024);
-            recv(client_sock, received_message, MAX_SIZE, 0);
-            if (strlen(received_message) < 30) {
-                printf("%s: ", received_message);
-                break;
-            } else {
-                printf("%s: ", received_message);
-            }
-        }
-
-        fgets(password, MAX_SIZE, stdin);
+        fgets(choice, MAX_SIZE, stdin);
         fflush(stdin);
 
         bzero(send_message, 1024);
-        strcpy(send_message, password);
+        strcpy(send_message, choice);
         send(client_sock, send_message, strlen(send_message), 0);
-
-        bzero(received_message, 1024);
-        recv(client_sock, received_message, MAX_SIZE, 0);
-        if (strcmp(received_message, "OK") == 0) {
-            printf("%s\n", received_message);
-            break;
+        
+        if (atoi(send_message) == 1) {
+            handle_login(username, password);
+        } else if (atoi(send_message) == 3) {
+            handle_register(username, password, name);
         } else {
-            printf("%s: ", received_message);
-        }
-    }    
-    char digit_string[MAX_SIZE];
-    char alpha_string[MAX_SIZE]; 
-    //change password part
-    while(1) {
-        fgets(password, MAX_SIZE, stdin);
-        fflush(stdin);
-
-        bzero(send_message, 1024);
-        strcpy(send_message, password);
-        send(client_sock, send_message, strlen(send_message), 0);
-
-        bzero(received_message, 1024);
-        recv(client_sock, received_message, MAX_SIZE, 0);
-        if (strcmp(received_message, "Goodbye") == 0) {
-            printf("Goodbye %s\n", username);
-            break;
-        } else if (strcmp(received_message, "Invalid") == 0) {
-            printf("Error\n");
-        } else if (strcmp(received_message, "Same") == 0) {
-            printf("Old password and new password is the same\n");
-        } else {
-            decode_password(received_message, digit_string, alpha_string);
-            if (strcmp(digit_string, "###") != 0) {
-                printf("%s\n", digit_string);
-            }
-            if (strcmp(alpha_string, "###") != 0) {
-                printf("%s\n", alpha_string);
-            }
+            handle_invalid_input();
         }
 
+        if (is_login) {
+            break;
+        }
     }
-
-    close(client_sock);
-    printf("Close port, disconect to server!\n");
 
     return 0;
 }
