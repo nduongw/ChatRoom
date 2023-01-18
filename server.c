@@ -19,14 +19,14 @@ struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size;
 char sent_message[1024];
 char received_message[1024];
-int n, is_login;
+int n, is_login = 0;
 pthread_t tid;
 
 client_t *clients[MAX_CLIENTS];
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
-int handle_login(char username[], char password[]) {
+int handle_login(char username[], char password[], client_t *client_info) {
     char message[MAX_SIZE] = "Input your account: ";
     send_message(client_sock, sent_message, message);
 
@@ -56,7 +56,6 @@ int handle_login(char username[], char password[]) {
         int user_id;
         get_user_info(db, stmt, username, password, name, &user_id);
         printf("User information: %s - id: %d\n", name, user_id);
-        client_t *client_info = (client_t *)malloc(sizeof(client_t));
         client_info->address = client_addr;
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
@@ -107,10 +106,13 @@ void *handle_client() {
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char name[MAX_SIZE];
+    int leave_flag = 1;
 
     bzero(received_message, 1024);
     recv(client_sock, received_message, sizeof(received_message), 0);
     printf("%s\n", received_message);
+
+    client_t *client_info = (client_t *)malloc(sizeof(client_t));
 
     while(1) {
         char message[MAX_SIZE] = "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ";
@@ -124,10 +126,10 @@ void *handle_client() {
 
         switch(choice) {
             case 1:
-                is_login = handle_login(username, password);
+                is_login = handle_login(username, password, client_info);
                 break;
             case 2:
-                handle_logout();
+                leave_flag = 0;
                 break;
             case 3:
                 handle_register(username, password, name);
@@ -143,8 +145,19 @@ void *handle_client() {
             printf("Client has logined!\n");
             break;
         }
+
+        if (leave_flag == 0) {
+            printf("Bye\n");
+            break;
+        }
     }
 
+    close(client_info->sockfd);
+    queue_remove(clients_mutex, clients, client_info->uid);
+    free(client_info);
+    pthread_detach(pthread_self());
+
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
