@@ -48,14 +48,15 @@ int handle_login(char username[], char password[], client_t *client_info) {
 
         return 0;
     } else {
-        strcpy(message, "Login successful\n");
-        send_message(client_sock, sent_message, message);
-        receive_message(client_sock, received_message);
-
         char name[MAX_SIZE];
         int user_id;
         get_user_info(db, stmt, username, password, name, &user_id);
         printf("User information: %s - id: %d\n", name, user_id);
+
+        strcpy(message, name);
+        send_message(client_sock, sent_message, message);
+        receive_message(client_sock, received_message);
+
         client_info->address = client_addr;
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
@@ -101,12 +102,29 @@ void handle_register(char username[], char password[], char name[]) {
     }
 }
 
+void send_message_to_all(char *message, int uid) {
+    pthread_mutex_lock(&clients_mutex);
+
+    for(int i = 0;i < MAX_CLIENTS; i++) {
+		if(clients[i]) {
+			if(clients[i]->uid != uid) {
+				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
+					perror("ERROR: write to descriptor failed");
+					break;
+				}
+			}
+		}
+	}
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
 void *handle_client() {
     char choice_str[MAX_SIZE];
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char name[MAX_SIZE];
-    int leave_flag = 1;
+    int leave_flag = 0;
 
     bzero(received_message, 1024);
     recv(client_sock, received_message, sizeof(received_message), 0);
@@ -129,7 +147,7 @@ void *handle_client() {
                 is_login = handle_login(username, password, client_info);
                 break;
             case 2:
-                leave_flag = 0;
+                leave_flag = 1;
                 break;
             case 3:
                 handle_register(username, password, name);
@@ -146,10 +164,45 @@ void *handle_client() {
             break;
         }
 
-        if (leave_flag == 0) {
+        if (leave_flag == 1) {
             printf("Bye\n");
+            close(client_info->sockfd);
+            queue_remove(clients_mutex, clients, client_info->uid);
+            free(client_info);
+            pthread_detach(pthread_self());
+            return NULL;
+        }
+    }
+    
+    char buffer_out[MAX_SIZE];
+    bzero(buffer_out, MAX_SIZE);
+
+    sprintf(buffer_out, "%s has online\n", client_info->name);
+    printf("%s", buffer_out);
+    send_message_to_all(buffer_out, client_info->uid);
+
+    while(1) {
+        if (leave_flag == 1) {
             break;
         }
+
+        bzero(buffer_out, MAX_SIZE);
+        int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
+        if (receive > 0) {
+            if (strlen(buffer_out) > 0) {
+                send_message_to_all(buffer_out, client_info->uid);
+                printf("%s", buffer_out);
+            }
+        } else if (receive == 0 || strcmp(buffer_out, "exit") == 0){
+			sprintf(buffer_out, "%s has left\n", client_info->name);
+			printf("%s", buffer_out);
+			send_message_to_all(buffer_out, client_info->uid);
+			leave_flag = 1;
+		} else {
+			printf("ERROR: -1\n");
+			leave_flag = 1;
+		}
+
     }
 
     close(client_info->sockfd);

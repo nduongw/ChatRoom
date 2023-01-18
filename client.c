@@ -1,18 +1,23 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+#include <string.h>
+#include <signal.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 
 #define MAX_SIZE 1024
+volatile sig_atomic_t flag = 0;
 
 int client_sock;
 struct sockaddr_in server_addr;
 socklen_t addr_size;
 char received_message[1024];
 char send_message[1024];
+char name[1024];
 int n;
 int is_login = 0;
 
@@ -20,29 +25,6 @@ int is_valid_address(char *ipAddress) {
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
     return result;
-}
-
-void decode_password(char *password, char *digit_string, char *alpha_string) {
-    int index = 0;
-    int j = 0;
-    for (int i = 0; i < strlen(password); i++) {
-        if (password[i] == '-') {
-            index = i;
-            break;
-        }
-    }
-
-    for (int i = 0; i < index; i++) {
-        digit_string[i] = password[i];
-    }
-
-    digit_string[index] = '\0';
-
-    for (int i = index + 1; i < strlen(password); i++) {
-        alpha_string[j++] = password[i];
-    }
-
-    alpha_string[j] = '\0';
 }
 
 void handle_login(char username[], char password[]) {
@@ -69,8 +51,9 @@ void handle_login(char username[], char password[]) {
     bzero(received_message, 1024);
     recv(client_sock, received_message, MAX_SIZE, 0);
     printf("%s\n", received_message);
+    strcpy(name, received_message);
 
-    if (strcmp(received_message, "Login successful") == 0) {
+    if (strlen(received_message) > 2) {
         is_login = 1;
     }
 
@@ -127,6 +110,60 @@ void handle_invalid_input() {
     bzero(send_message, 1024);
     strcpy(send_message, "Done\n");
     send(client_sock, send_message, strlen(send_message), 0);
+}
+
+void catch_ctrl_c_and_exit(int sig) {
+    flag = 1;
+}
+
+void str_trim_lf (char* arr, int length) {
+  int i;
+  for (i = 0; i < length; i++) {
+    if (arr[i] == '\n') {
+      arr[i] = '\0';
+      break;
+    }
+  }
+}
+
+void send_msg_handler() {
+    char message[MAX_SIZE];
+	char buffer[MAX_SIZE];
+
+    while(1) {
+        fgets(message, MAX_SIZE, stdin);
+        str_trim_lf(message, MAX_SIZE);
+
+        if (strcmp(message, "exit") == 0) {
+            break;
+        } else {
+            sprintf(buffer, "%s: %s\n", name, message);
+            // strcat(buffer, name);
+            // strcat(buffer, ": ");
+            // strcat(buffer, message);
+            // strcat(buffer, "\n");
+            send(client_sock, buffer, strlen(buffer), 0);
+        }
+
+        bzero(message, MAX_SIZE);
+        bzero(buffer, MAX_SIZE);
+    }
+    catch_ctrl_c_and_exit(2);
+}
+
+void recv_msg_handler() {
+	char message[MAX_SIZE];
+    while (1) {
+        int receive = recv(client_sock, message, MAX_SIZE, 0);
+        if (receive > 0) {
+            printf("%s", message);
+        } else if (receive == 0) {
+            break;
+        }
+        memset(message, 0, sizeof(message));
+    }
+
+    return;
 }
 
 int main(int argc, char *argv[]) {
@@ -198,5 +235,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    pthread_t send_msg_thread;
+    if (pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0) {
+        printf("Error: pthread\n");
+        return -1;
+    }
+
+    pthread_t recv_msg_thread;
+    if (pthread_create(&recv_msg_thread, NULL, (void *) recv_msg_handler, NULL) != 0) {
+        printf("Error: pthread\n");
+        return -1;
+    }
+
+    while(1){
+        if(flag) {
+            printf("Bye\n");
+            break;
+        }
+    }
+
+    close(client_sock);
     return 0;
 }
