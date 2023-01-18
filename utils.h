@@ -19,7 +19,14 @@ int find_last_id(sqlite3 *db, sqlite3_stmt *stmt);
 int register_new_account(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[]);
 void create_new_group(sqlite3 *db, sqlite3_stmt *stmt);
 void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int member_ids[], int *length);
-int read_database(sqlite3 *db, sqlite3_stmt *stmt);
+
 void send_message(int client_sock, char *packet, char *messege);
 void receive_message(int client_sock, char *received_message);
+void encode_password(char *password, char *digit_string, char *alpha_string);
+
+void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl);
+void queue_remove(pthread_mutex_t clients_mutex, client_t *clients[], int uid);
+client_t queue_find(pthread_mutex_t clients_mutex, client_t *clients[], int uid);
+void traverse_queue(client_t *clients[]);
+
 #endif

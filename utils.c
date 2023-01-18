@@ -5,9 +5,6 @@
 #include <strings.h>
 #include "utils.h"
 
-sqlite3 *db;
-sqlite3_stmt *stmt;
-
 int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[]) {
     char *sql = "SELECT * FROM users WHERE account = ? AND password = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, 0);
@@ -28,6 +25,7 @@ int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char p
 }
 
 void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[], int *id) {
+    printf("Username: %s - password: %s\n", username, password);
 
     char *sql = "SELECT id, username FROM users WHERE account = ? AND password = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
@@ -194,18 +192,6 @@ void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int mem
 }
 
 
-int read_database(sqlite3 *db, sqlite3_stmt *stmt) {
-	sqlite3_open("chat_room.db", &db);
-
-	if (db == NULL) {
-		printf("Failed to open DB\n");
-		return 0;
-	}
-
-    printf("Read database successful\n");
-	return 1;
-}
-
 void send_message(int client_sock, char *packet, char *messege) {
     printf("Sending messege: %s\n", messege);
     bzero(packet, 1024);
@@ -218,4 +204,83 @@ void receive_message(int client_sock, char *received_message) {
     int check = recv(client_sock, received_message, MAX_SIZE, 0);
     received_message[strlen(received_message) - 1] = '\0';
     printf("Received messege: %s\n", received_message);
+}
+
+void encode_password(char *password, char *digit_string, char *alpha_string) {
+    char number[100];
+    char character[100];
+    int count_n = 0;
+    int count_c = 0;
+
+    for (int i = 0; i < strlen(password); i++) {
+        if (isdigit(password[i])) {
+            number[count_n++] = password[i];
+        } else if (isalpha(password[i])) {
+            character[count_c++] = password[i];
+        } else {
+            strcpy(number, "???");
+            strcpy(character, "???");
+            return;
+        }
+    }
+    
+    if (count_c == 0) {
+        strcpy(character, "###");
+    } else {
+        character[count_c] = '\0';
+    }
+
+    if (count_n == 0) {
+        strcpy(number, "###");
+    } else {
+        number[count_n] = '\0';
+    }
+
+    strcpy(digit_string, number);
+    strcpy(alpha_string, character);
+    return;
+}
+
+/* Add clients to queue */
+void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl){
+	pthread_mutex_lock(&clients_mutex);
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(!clients[i]){
+			clients[i] = cl;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&clients_mutex);
+}
+
+/* Remove clients to queue */
+void queue_remove(pthread_mutex_t clients_mutex, client_t *clients[], int uid){
+	pthread_mutex_lock(&clients_mutex);
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+			if(clients[i]->uid == uid){
+				clients[i] = NULL;
+				break;
+			}
+		}
+	}
+	pthread_mutex_unlock(&clients_mutex);
+}
+
+client_t queue_find(pthread_mutex_t clients_mutex, client_t *clients[], int uid) {
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+			if(clients[i]->uid == uid){
+				return *clients[i];
+			}
+		}
+	}
+}
+
+void traverse_queue(client_t *clients[]) {
+    for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+			printf("Client id: %d - client name: %s\n", clients[i]->uid, clients[i]->name);
+		}
+	}
 }
