@@ -73,39 +73,40 @@ void handle_logout() {
     printf("Handle logout\n");
 }
 
-// void handle_register(char username[], char password[], char name[]) {
-//     char message[MAX_SIZE] = "Input new account: ";
-//     send_message(client_sock, sent_message, message);
-//     receive_message(client_sock, received_message);
-//     strcpy(username, received_message);
+void handle_register(char username[], char password[], char name[]) {
+    char message[MAX_SIZE] = "Input new account: ";
+    send_message(client_sock, sent_message, message);
+    receive_message(client_sock, received_message);
+    strcpy(username, received_message);
 
-//     strcpy(message, "Input new password: ");
-//     send_message(client_sock, sent_message, message);
-//     receive_message(client_sock, received_message);
-//     strcpy(password, received_message);
+    strcpy(message, "Input new password: ");
+    send_message(client_sock, sent_message, message);
+    receive_message(client_sock, received_message);
+    strcpy(password, received_message);
 
-//     strcpy(message, "Input name: ");
-//     send_message(client_sock, sent_message, message);
-//     receive_message(client_sock, received_message);
-//     strcpy(name, received_message);
+    strcpy(message, "Input name: ");
+    send_message(client_sock, sent_message, message);
+    receive_message(client_sock, received_message);
+    strcpy(name, received_message);
 
-//     int check = register_new_account(username, password, name);
+    int check = register_new_account(db, stmt, username, password, name);
 
-//     if (check) {
-//         strcpy(message, "Register successful");
-//         send_message(client_sock, sent_message, message);
-//         receive_message(client_sock, received_message);
-//     } else {
-//         strcpy(message, "Can not register this account");
-//         send_message(client_sock, sent_message, message);
-//         receive_message(client_sock, received_message);
-//     }
-// }
+    if (check) {
+        strcpy(message, "Register successful");
+        send_message(client_sock, sent_message, message);
+        receive_message(client_sock, received_message);
+    } else {
+        strcpy(message, "Can not register this account");
+        send_message(client_sock, sent_message, message);
+        receive_message(client_sock, received_message);
+    }
+}
 
 void *handle_client() {
     char choice_str[MAX_SIZE];
     char username[MAX_SIZE];
     char password[MAX_SIZE];
+    char name[MAX_SIZE];
 
     bzero(received_message, 1024);
     recv(client_sock, received_message, sizeof(received_message), 0);
@@ -129,7 +130,7 @@ void *handle_client() {
                 handle_logout();
                 break;
             case 3:
-                // handle_register(username, password, name);
+                handle_register(username, password, name);
                 break;
             default:
                 strcpy(message, "Invalid choice\n");

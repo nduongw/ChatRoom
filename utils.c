@@ -140,7 +140,7 @@ int register_new_account(sqlite3 *db, sqlite3_stmt *stmt, char username[], char 
         sqlite3_bind_int(stmt, 1, new_id + 1);
         sqlite3_bind_text(stmt, 2, username, strlen(username), SQLITE_STATIC);
         sqlite3_bind_text(stmt, 3, password, strlen(password), SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 4, password, strlen(name), SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 4, name, strlen(name), SQLITE_STATIC);
     } else {
         printf("Failed to prepare statement\n");
         return -1;
