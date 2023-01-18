@@ -51,7 +51,7 @@ int handle_login(char username[], char password[], client_t *client_info) {
         char name[MAX_SIZE];
         int user_id;
         get_user_info(db, stmt, username, password, name, &user_id);
-        printf("User information: %s - id: %d\n", name, user_id);
+        // printf("User information: %s - id: %d\n", name, user_id);
 
         strcpy(message, name);
         send_message(client_sock, sent_message, message);
@@ -102,6 +102,38 @@ void handle_register(char username[], char password[], char name[]) {
     }
 }
 
+void split_buffer(char *buffer_out, char *option, char *message, char *name) {
+    int count_o = 0;
+    int count_n = 0;
+    int count_m = 0;
+    
+    for (int i = 0; i < strlen(buffer_out); i++) {
+        if (buffer_out[i] != ':') {
+            name[count_n++] = buffer_out[i];
+        } else {
+            break;
+        }
+    }
+
+    name[count_n] = '\0';
+
+    for (int i = count_n + 2; i < strlen(buffer_out); i++) {
+        if (buffer_out[i] != '&') {
+            option[count_o++] = buffer_out[i];
+        } else {
+            break;
+        }
+    }
+
+    option[count_o] = '\0';
+
+    for (int i = count_n + count_o + 3; i < strlen(buffer_out); i++) {
+        message[count_m++] = buffer_out[i];
+    }
+
+    message[count_m] = '\0';
+}
+
 void send_message_to_all(char *message, int uid) {
     pthread_mutex_lock(&clients_mutex);
 
@@ -119,11 +151,46 @@ void send_message_to_all(char *message, int uid) {
     pthread_mutex_unlock(&clients_mutex);
 }
 
+void send_message_to_one(char *message, int uid, int to_uid) {
+    pthread_mutex_lock(&clients_mutex);
+
+    for(int i = 0;i < MAX_CLIENTS; i++) {
+		if(clients[i]) {
+			if((clients[i]->uid != uid) && (clients[i]->uid == to_uid)) {
+				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
+					perror("ERROR: write to descriptor failed");
+					break;
+				}
+			}
+		}
+	}
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+// void send_message_to_group(char *message, int uid) {
+//     pthread_mutex_lock(&clients_mutex);
+
+//     for(int i = 0;i < MAX_CLIENTS; i++) {
+// 		if(clients[i]) {
+// 			if(clients[i]->uid != uid) {
+// 				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
+// 					perror("ERROR: write to descriptor failed");
+// 					break;
+// 				}
+// 			}
+// 		}
+// 	}
+
+//     pthread_mutex_unlock(&clients_mutex);
+// }
+
 void *handle_client() {
     char choice_str[MAX_SIZE];
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char name[MAX_SIZE];
+    char option[MAX_SIZE], message[MAX_SIZE];
     int leave_flag = 0;
 
     bzero(received_message, 1024);
@@ -133,7 +200,7 @@ void *handle_client() {
     client_t *client_info = (client_t *)malloc(sizeof(client_t));
 
     while(1) {
-        char message[MAX_SIZE] = "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ";
+        strcpy(message, "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ");
         send_message(client_sock, sent_message, message);
 
         bzero(received_message, 1024);
@@ -190,8 +257,17 @@ void *handle_client() {
         int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
         if (receive > 0) {
             if (strlen(buffer_out) > 0) {
-                send_message_to_all(buffer_out, client_info->uid);
-                printf("%s", buffer_out);
+                printf("Buffer out: %s", buffer_out);
+                split_buffer(buffer_out, option, message, name);
+                printf("Option: %s - Message: %s\n",option, message);
+                char new_message[MAX_SIZE];
+                sprintf(new_message, "%s : %s", name, message);
+                printf("%s\n", new_message);
+                if (strcmp(option, "all") == 0) {
+                    send_message_to_all(new_message, client_info->uid);
+                } else if (strcmp(option, "one") == 0) {
+                    send_message_to_one(new_message, client_info->uid, 1);
+                }
             }
         } else if (receive == 0 || strcmp(buffer_out, "exit") == 0){
 			sprintf(buffer_out, "%s has left\n", client_info->name);
