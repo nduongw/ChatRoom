@@ -8,50 +8,25 @@
 #include <ctype.h>
 #include "utils.c"
 #include <sqlite3.h> 
-
-#define MAX_SIZE 1024
+#include <signal.h>
 
 sqlite3 *db;
-sqlite3_stmt *res;
-char *err_message = 0;
+sqlite3_stmt *stmt;
 char *sql;
 int rc;
-const char* data = "Callback function called";
-
-// read_database(db, sql, err_message, rc);
+static int client_count = 0;
+static int uid = 0;
 
 int server_sock, client_sock;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size;
 char sent_message[1024];
 char received_message[1024];
-int n;
-FILE *fptr;
-int count_signin = 0, is_login;
+int n, is_login;
+pthread_t tid;
 
-static int callback(void *data, int num_cols, char **rows, char **col_name){
-   int i;
-   fprintf(stderr, "%s: ", (const char*)data);
-   for(i = 0; i < num_cols; i++){
-      printf("%s = %s\n", col_name[i], rows[i] ? rows[i] : "NULL");
-   }
-   printf("\n");
-   return 0;
-}
-
-void send_message(int client_sock, char *packet, char *messege) {
-    printf("Sending messege: %s\n", messege);
-    bzero(packet, 1024);
-    strcpy(packet, messege);
-    send(client_sock, packet, strlen(packet), 0);
-}
-
-void receive_message(int client_sock, char *received_message) {
-    bzero(received_message, 1024);
-    int check = recv(client_sock, received_message, MAX_SIZE, 0);
-    received_message[strlen(received_message) - 1] = '\0';
-    printf("Received messege: %s\n", received_message);
-}
+client_t *clients[MAX_CLIENTS];
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void encode_password(char *password, char *digit_string, char *alpha_string) {
     char number[100];
@@ -88,122 +63,117 @@ void encode_password(char *password, char *digit_string, char *alpha_string) {
     return;
 }
 
-void read_database(sqlite3 *db, char *sql, char *err_message, int rc) {
-    rc = sqlite3_open("chat_room.db", &db);
-    if (rc) {
-        printf("Cant open database\n");
-        return;
-    } else {
-        printf("Open database successfully\n");
-    }
-}
+// int handle_login(char username[], char password[]) {
+//     char message[MAX_SIZE] = "Input your account: ";
+//     send_message(client_sock, sent_message, message);
 
-int check_account_exist(char username[], char password[]) {
-    sql = "SELECT * FROM users WHERE account = ? AND password = ?";
-    rc = sqlite3_prepare(db, sql, -1, &res, 0);
-    if (rc == SQLITE_OK) {
-        sqlite3_bind_text(res, 1, username, strlen(username), SQLITE_STATIC);
-        sqlite3_bind_text(res, 2, password, strlen(password), SQLITE_STATIC);
-    } else {
-        printf("Failed to prepare statement\n");
-        return -1;
-    }
+//     receive_message(client_sock, received_message);
+//     strcpy(username, received_message);
 
-    int step = sqlite3_step(res);
-    if (step == SQLITE_ROW) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
+//     strcpy(message, "Input your password: ");
+//     send_message(client_sock, sent_message, message);
 
-int register_new_account(char username[], char password[], char name[]) {
-    sql = "INSERT INTO users (id, account, password, username, last_logined) VALUES (10, ?, ?, ?, '2023-11-11')";
-    rc = sqlite3_prepare(db, sql, -1, &res, 0);
-    if (rc == SQLITE_OK) {
-        sqlite3_bind_text(res, 1, username, strlen(username), SQLITE_STATIC);
-        sqlite3_bind_text(res, 2, password, strlen(password), SQLITE_STATIC);
-        sqlite3_bind_text(res, 3, password, strlen(name), SQLITE_STATIC);
-    } else {
-        printf("Failed to prepare statement\n");
-        return -1;
-    }
+//     receive_message(client_sock, received_message);
+//     strcpy(password, received_message);
 
-    int step = sqlite3_step(res);
-    if (step == SQLITE_DONE) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
+//     int check = check_account_exist(username, password);
 
-int handle_login(char username[], char password[]) {
-    char message[MAX_SIZE] = "Input your account: ";
-    send_message(client_sock, sent_message, message);
+//     if (!check) {
+//         strcpy(message, "Your account does not exist or wrong password");
+//         send_message(client_sock, sent_message, message);
+//         receive_message(client_sock, received_message);
 
-    receive_message(client_sock, received_message);
-    strcpy(username, received_message);
+//         return 0;
+//     } else {
+//         strcpy(message, "Login successful\n");
+//         send_message(client_sock, sent_message, message);
+//         receive_message(client_sock, received_message);
 
-    strcpy(message, "Input your password: ");
-    send_message(client_sock, sent_message, message);
-
-    receive_message(client_sock, received_message);
-    strcpy(password, received_message);
-
-    int check = check_account_exist(username, password);
-
-    if (!check) {
-        strcpy(message, "Your account does not exist or wrong password");
-        send_message(client_sock, sent_message, message);
-        receive_message(client_sock, received_message);
-
-        return 0;
-    } else {
-        strcpy(message, "Login successful\n");
-        send_message(client_sock, sent_message, message);
-        receive_message(client_sock, received_message);
-
-        return 1;
-    }
-
-
-}
+//         return 1;
+//     }
+// }
 
 void handle_logout() {
     printf("Handle logout\n");
 }
 
-void handle_register(char username[], char password[], char name[]) {
-    char message[MAX_SIZE] = "Input new account: ";
-    send_message(client_sock, sent_message, message);
-    receive_message(client_sock, received_message);
-    strcpy(username, received_message);
+// void handle_register(char username[], char password[], char name[]) {
+//     char message[MAX_SIZE] = "Input new account: ";
+//     send_message(client_sock, sent_message, message);
+//     receive_message(client_sock, received_message);
+//     strcpy(username, received_message);
 
-    strcpy(message, "Input new password: ");
-    send_message(client_sock, sent_message, message);
-    receive_message(client_sock, received_message);
-    strcpy(password, received_message);
+//     strcpy(message, "Input new password: ");
+//     send_message(client_sock, sent_message, message);
+//     receive_message(client_sock, received_message);
+//     strcpy(password, received_message);
 
-    strcpy(message, "Input name: ");
-    send_message(client_sock, sent_message, message);
-    receive_message(client_sock, received_message);
-    strcpy(name, received_message);
+//     strcpy(message, "Input name: ");
+//     send_message(client_sock, sent_message, message);
+//     receive_message(client_sock, received_message);
+//     strcpy(name, received_message);
 
-    int check = register_new_account(username, password, name);
+//     int check = register_new_account(username, password, name);
 
-    if (check) {
-        strcpy(message, "Register successful");
+//     if (check) {
+//         strcpy(message, "Register successful");
+//         send_message(client_sock, sent_message, message);
+//         receive_message(client_sock, received_message);
+//     } else {
+//         strcpy(message, "Can not register this account");
+//         send_message(client_sock, sent_message, message);
+//         receive_message(client_sock, received_message);
+//     }
+// }
+
+void *handle_client() {
+    char choice_str[MAX_SIZE];
+    char username[MAX_SIZE];
+    char password[MAX_SIZE];
+    char name[MAX_SIZE];
+
+    bzero(received_message, 1024);
+    recv(client_sock, received_message, sizeof(received_message), 0);
+    printf("%s\n", received_message);
+
+    while(1) {
+        char message[MAX_SIZE] = "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ";
         send_message(client_sock, sent_message, message);
+
+        bzero(received_message, 1024);
         receive_message(client_sock, received_message);
-    } else {
-        strcpy(message, "Can not register this account");
-        send_message(client_sock, sent_message, message);
-        receive_message(client_sock, received_message);
+        strcpy(choice_str, received_message);
+
+        int choice = atoi(choice_str);
+
+        switch(choice) {
+            case 1:
+                // is_login = handle_login(username, password);
+                break;
+            case 2:
+                handle_logout();
+                break;
+            case 3:
+                // handle_register(username, password, name);
+                break;
+            default:
+                strcpy(message, "Invalid choice\n");
+                send_message(client_sock, sent_message, message);
+                receive_message(client_sock, received_message);
+                break;
+        }
+
+        if (is_login) {
+            printf("Client has logined!\n");
+            break;
+        }
     }
+
 }
 
 int main(int argc, char *argv[]) {
     char *server_ip = "127.0.0.1";
+    int option = 1;
 
     //check number of parameters
     if (argc != 2) {
@@ -221,21 +191,32 @@ int main(int argc, char *argv[]) {
         perror("Socket error");
         exit(1);
     }
-
-    rc = sqlite3_open("chat_room.db", &db);
-    if (rc) {
-        printf("Cant open database\n");
-        return -1;
-    } else {
-        printf("Open database successfully\n");
-    }
-
     printf("TCP Socket created!\n");
+
+    //read database
+    // rc = sqlite3_open("chat_room.db", &db);
+    // if (rc) {
+    //     printf("Cant open database\n");
+    //     return -1;
+    // } else {
+    //     printf("Open database successfully\n");
+    // }
+
+    read_database(db, stmt);
+
 
     memset(&server_addr, '\0', sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(atoi(argv[1]));
     server_addr.sin_addr.s_addr = inet_addr(server_ip);
+
+    /* Ignore pipe signals */
+	signal(SIGPIPE, SIG_IGN);
+
+	if(setsockopt(server_sock, SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0){
+		perror("ERROR: setsockopt failed");
+    return EXIT_FAILURE;
+	}
 
     n = bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (n < 0) {
@@ -251,157 +232,15 @@ int main(int argc, char *argv[]) {
     int sin_size = sizeof(client_addr);
 
     char choice_str[MAX_SIZE];
-    char username[MAX_SIZE];
-    char password[MAX_SIZE];
-    char name[MAX_SIZE];
+
     int is_signin = 0;
     pid_t child_pid;
-
 
     while(1) {
         client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &sin_size);
         printf("Client connected!\n");
 
-        if ((child_pid = fork()) == 0) {
-            close(server_sock);
-
-            bzero(received_message, 1024);
-            recv(client_sock, received_message, sizeof(received_message), 0);
-            printf("%s\n", received_message);
-
-            while(1) {
-                char message[MAX_SIZE] = "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ";
-                send_message(client_sock, sent_message, message);
-
-                bzero(received_message, 1024);
-                receive_message(client_sock, received_message);
-                strcpy(choice_str, received_message);
-
-                int choice = atoi(choice_str);
-
-                switch(choice) {
-                    case 1:
-                        is_login = handle_login(username, password);
-                        break;
-                    case 2:
-                        handle_logout();
-                        break;
-                    case 3:
-                        handle_register(username, password, name);
-                        break;
-                    default:
-                        strcpy(message, "Invalid choice\n");
-                        send_message(client_sock, sent_message, message);
-                        receive_message(client_sock, received_message);
-
-                        break;
-                }
-
-                if (is_login) {
-                    break;
-                }
-            }
-
-            
-
-        //     while(1) {
-        //         receive_message(client_sock, received_message);
-        //         strcpy(username, received_message);
-        //         int check;
-                
-        //         while (1){
-        //             check = search_account(linked_list, username);
-        //             if (!check) {
-        //                 strcpy(messege, "Account doesn't exist, please input your username again");
-        //                 send_message(client_sock, sent_message, messege);
-
-        //                 bzero(received_message, 1024);
-        //                 receive_message(client_sock, received_message);
-        //                 strcpy(username, received_message);
-        //             } else {
-        //                 break;
-        //             }
-        //         }
-                
-        //         strcpy(messege, "Please input your password");
-        //         send_message(client_sock, sent_message, messege);
-
-        //         receive_message(client_sock, received_message);
-        //         strcpy(password, received_message);
-
-        //         check = sign_in_account(linked_list, &count_signin, username, password);
-        //         update_file();
-
-        //         switch (check) {
-        //             case 0:
-        //                 printf("Sending ok...\n");
-        //                 strcpy(messege, "OK");
-        //                 send_message(client_sock, sent_message, messege);
-        //                 is_signin = 1;
-        //                 break;
-        //             case -1:
-        //                 printf("Sending block...\n");
-        //                 write_to_file(fptr, linked_list);
-        //                 strcpy(messege, "Account is blocked\nPlease input different account");
-        //                 send_message(client_sock, sent_message, messege);
-        //                 break;
-        //             case -2:
-        //                 strcpy(messege, "Account has been signed in\nPlease input different account");
-        //                 send_message(client_sock, sent_message, messege);
-        //                 break;
-        //             case -3:
-        //                 strcpy(messege, "Not OK\nPlease input different account");
-        //                 send_message(client_sock, sent_message, messege);
-        //                 break;
-        //             default:
-        //                 break;
-        //         }
-
-        //         if (is_signin) {
-        //             printf("Move to the next part\n");
-        //             break;
-        //         }
-        //     }
-
-        //     char digit_string[MAX_SIZE] = "*";
-        //     char alpha_string[MAX_SIZE] = "*";
-
-        //     while(1) {
-        //         receive_message(client_sock, received_message);
-        //         strcpy(password, received_message);
-
-        //         if (strcmp(password, "bye") == 0 || strlen(password) == 0) {
-        //             strcpy(messege, "Goodbye");
-        //             send_message(client_sock, sent_message, messege);
-        //             sign_out_account(fptr, linked_list, username);
-        //             is_signin = 0;
-        //             break;
-        //         } else {
-        //             encode_password(password, digit_string, alpha_string);
-        //             printf("Digit string: %s\nAlpha string: %s\n", digit_string, alpha_string);
-                    
-        //             if (strcmp(digit_string, "*") == 0) {
-        //                 strcpy(messege, "Invalid");
-        //                 send_message(client_sock, sent_message, messege);
-        //             } else {
-        //                 int check = change_password(fptr, linked_list, username, password);
-        //                 if (check) {
-        //                     write_to_file(fptr, linked_list);
-        //                     strcat(digit_string, "-");
-        //                     strcat(digit_string, alpha_string);
-        //                     strcpy(messege, digit_string);
-        //                     send_message(client_sock, sent_message, messege);
-        //                 } else {
-        //                     strcpy(messege, "Same");
-        //                     send_message(client_sock, sent_message, messege);
-        //                 }
-        //             }
-        //         }
-
-        //         update_file();
-        //     }
-        }
-
+        pthread_create(&tid, NULL, &handle_client, NULL);
     }
     return 0;
 }

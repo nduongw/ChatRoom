@@ -1,1 +1,1 @@
-gcc handle_login.c -o login -l sqlite3
+gcc read_data.c -o read_data -l sqlite3

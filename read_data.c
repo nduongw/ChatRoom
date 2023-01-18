@@ -1,14 +1,59 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sqlite3.h>
+#include <string.h>
 #include <strings.h>
-#include "utils.h"
+
+#define MAX_CLIENTS 100
 
 sqlite3 *db;
 sqlite3_stmt *stmt;
 
-int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[]) {
+typedef struct{
+	// struct sockaddr_in address;
+	// int sockfd;
+	int uid;
+	char name[32];
+} client_t;
+
+client_t *clients[MAX_CLIENTS];
+
+/* Add clients to queue */
+void queue_add(client_t *cl){
+	// pthread_mutex_lock(&clients_mutex);
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(!clients[i]){
+			clients[i] = cl;
+			break;
+		}
+	}
+	// pthread_mutex_unlock(&clients_mutex);
+}
+
+/* Remove clients to queue */
+void queue_remove(int uid){
+	// pthread_mutex_lock(&clients_mutex);
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+			if(clients[i]->uid == uid){
+				clients[i] = NULL;
+				break;
+			}
+		}
+	}
+	// pthread_mutex_unlock(&clients_mutex);
+}
+
+client_t queue_find(int uid) {
+	for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+			if(clients[i]->uid == uid){
+				return *clients[i];
+			}
+		}
+	}
+}
+
+int check_account_exist(char username[], char password[]) {
     char *sql = "SELECT * FROM users WHERE account = ? AND password = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, 0);
     if (check == SQLITE_OK) {
@@ -27,7 +72,7 @@ int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char p
     }
 }
 
-void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[], int *id) {
+void get_user_info(char username[], char password[], char name[], int *id) {
 
     char *sql = "SELECT id, username FROM users WHERE account = ? AND password = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
@@ -59,7 +104,7 @@ void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char passwo
     return;
 }
 
-void get_user_info_by_id(sqlite3 *db, sqlite3_stmt *stmt, int user_id, char *name) {
+void get_user_info_by_id(int user_id, char *name) {
 	char *sql = "SELECT username FROM users WHERE id = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
     if (check == SQLITE_OK) {
@@ -86,14 +131,14 @@ void get_user_info_by_id(sqlite3 *db, sqlite3_stmt *stmt, int user_id, char *nam
     return;
 }
 
-int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name) {
+int get_user_id_by_name(char *name) {
 	char *sql = "SELECT id FROM users WHERE username = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
     if (check == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, name, strlen(name), SQLITE_STATIC);
     } else {
         printf("Fail to prepare statement\n");
-        return -1;
+        return;
     }
 
     while(sqlite3_step(stmt) != SQLITE_DONE) {
@@ -112,7 +157,7 @@ int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name) {
     }
 }
 
-int find_last_id(sqlite3 *db, sqlite3_stmt *stmt) {
+int find_last_id() {
 	char *sql = "SELECT id FROM users ORDER BY id DESC";
     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
 
@@ -129,9 +174,18 @@ int find_last_id(sqlite3 *db, sqlite3_stmt *stmt) {
     return 0;
 }
 
-int register_new_account(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[]) {
-	int new_id = find_last_id(db, stmt);
-	int check = check_account_exist(db, stmt, username, password);
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+   int i;
+   for(i = 0; i<argc; i++) {
+      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+   }
+   printf("\n");
+   return 0;
+}
+
+int register_new_account(char username[], char password[], char name[]) {
+	int new_id = find_last_id();
+	int check = check_account_exist(username, password);
 	if (check == 1) {
 		printf("Account has existed\n");
 		return 0;
@@ -157,7 +211,7 @@ int register_new_account(sqlite3 *db, sqlite3_stmt *stmt, char username[], char 
     }
 }
 
-void create_new_group(sqlite3 *db, sqlite3_stmt *stmt) {
+void create_new_group() {
     char *sql = "INSERT INTO groups VALUES (1, 1, group_chat1)";
     int check = sqlite3_prepare(db, sql, -1, &stmt, 0);
 
@@ -171,7 +225,7 @@ void create_new_group(sqlite3 *db, sqlite3_stmt *stmt) {
     }
 }
 
-void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int member_ids[], int *length) {
+void get_group_members_id(int group_id, int member_ids[], int *length) {
 	char *sql = "SELECT user_id FROM groups_members WHERE id = ?";
     int check = sqlite3_prepare(db, sql, -1, &stmt, 0);
     if (check == SQLITE_OK) {
@@ -194,7 +248,7 @@ void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int mem
 }
 
 
-int read_database(sqlite3 *db, sqlite3_stmt *stmt) {
+int read_database() {
 	sqlite3_open("chat_room.db", &db);
 
 	if (db == NULL) {
@@ -202,20 +256,113 @@ int read_database(sqlite3 *db, sqlite3_stmt *stmt) {
 		return 0;
 	}
 
-    printf("Read database successful\n");
 	return 1;
 }
 
-void send_message(int client_sock, char *packet, char *messege) {
-    printf("Sending messege: %s\n", messege);
-    bzero(packet, 1024);
-    strcpy(packet, messege);
-    send(client_sock, packet, strlen(packet), 0);
-}
+int main() {
+	
+    char username[100];
+    char password[100];
+    char name[100];
+	int id, num_members;
+	int group_members[100];
+	
+	int check = read_database();
+	if (!check) {
+		printf("Fail to read database\n");
+	} else {
+		printf("Read database successful!\n");
+	}
 
-void receive_message(int client_sock, char *received_message) {
-    bzero(received_message, 1024);
-    int check = recv(client_sock, received_message, MAX_SIZE, 0);
-    received_message[strlen(received_message) - 1] = '\0';
-    printf("Received messege: %s\n", received_message);
+
+	// create_new_group();
+
+	// printf("Input username: ");
+	// scanf("%s", username);
+	// printf("Input password: ");
+	// scanf("%s", password);
+	// printf("Input name: ");
+	// scanf("%s", name);
+	printf("Input group id: ");
+	scanf("%d", &id);
+	get_group_members_id(id, group_members, &num_members);
+	printf("Total members is %d\n", num_members);
+
+	for (int i = 0; i < num_members; i++) {
+		get_user_info_by_id(group_members[i], name);
+		printf("%s\n", name);
+	}
+
+
+	// register_new_account(username, password, name);
+
+    // get_user_info(username, password, name, &id);
+    // printf("User infomation: %d - %s\n", id, name);
+	// printf("Last id : %d\n", find_last_id());
+	// printf("Performing query...\n");
+    // char *sql = "SELECT * FROM users";
+	// sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+	
+	// printf("Got results:\n");
+	// while (sqlite3_step(stmt) != SQLITE_DONE) {
+	// 	int i;
+	// 	int num_cols = sqlite3_column_count(stmt);
+		
+	// 	for (i = 0; i < num_cols; i++) {
+	// 		switch (sqlite3_column_type(stmt, i))
+	// 		{
+	// 		case (SQLITE3_TEXT):
+	// 			printf("%s, ", sqlite3_column_text(stmt, i));
+	// 			break;
+	// 		case (SQLITE_INTEGER):
+	// 			printf("%d, ", sqlite3_column_int(stmt, i));
+	// 			break;
+	// 		default:
+	// 			break;
+	// 		}
+	// 	}
+	// 	printf("\n");
+	// }
+	// char *err_msg = 0;
+
+	// char *sql = "DROP TABLE IF EXISTS groups_members;" 
+	// 		"CREATE TABLE groups_members("  \
+	// 		"id INT NOT NULL," \
+	// 		"user_id INT NOT NULL);";
+
+	// /* Execute SQL statement */
+	// int rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+
+	// if( rc != SQLITE_OK ){
+	// 	fprintf(stderr, "SQL error: %s\n", err_msg);
+	// 	sqlite3_free(&err_msg);
+	// } else {
+	// 	fprintf(stdout, "Table created successfully\n");
+	// }
+
+
+
+	// char *err_msg = 0;
+
+	// char *sql = "INSERT INTO groups_members VALUES (11, 1);" 
+    //             "INSERT INTO groups_members VALUES (11, 13);";
+
+    // int rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+    
+    // if (rc != SQLITE_OK ) {
+        
+    //     fprintf(stderr, "SQL error: %s\n", err_msg);
+        
+    //     sqlite3_free(err_msg);        
+    //     sqlite3_close(db);
+        
+    //     return 1;
+    // } else {
+	// 	printf("DOne\n");
+	// }
+
+	sqlite3_finalize(stmt);
+
+	sqlite3_close(db);
+	return 0;
 }

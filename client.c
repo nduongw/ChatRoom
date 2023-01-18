@@ -70,7 +70,7 @@ void handle_login(char username[], char password[]) {
     recv(client_sock, received_message, MAX_SIZE, 0);
     printf("%s\n", received_message);
 
-    if (strcmp(received_message, "Register successful") == 0) {
+    if (strcmp(received_message, "Login successful") == 0) {
         is_login = 1;
     }
 
@@ -193,6 +193,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (is_login) {
+            printf("Login done\n");
             break;
         }
     }
