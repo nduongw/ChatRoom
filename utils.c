@@ -203,7 +203,7 @@ void receive_message(int client_sock, char *received_message) {
     bzero(received_message, 1024);
     int check = recv(client_sock, received_message, MAX_SIZE, 0);
     received_message[strlen(received_message) - 1] = '\0';
-    // printf("Received messege: %s\n", received_message);
+    printf("Received messege: %s\n", received_message);
 }
 
 void encode_password(char *password, char *digit_string, char *alpha_string) {

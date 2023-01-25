@@ -136,13 +136,16 @@ void send_msg_handler() {
 
         if (strcmp(message, "exit") == 0) {
             break;
+        } else if (strcmp(message, "quit") == 0 || strlen(message) == 1) {
+            is_login = 0;
+            send(client_sock, message, strlen(message), 0);
         } else {
-            sprintf(buffer, "%s: %s\n", name, message);
-            // strcat(buffer, name);
-            // strcat(buffer, ": ");
-            // strcat(buffer, message);
-            // strcat(buffer, "\n");
-            send(client_sock, buffer, strlen(buffer), 0);
+            if (is_login) {
+                sprintf(buffer, "%s: %s\n", name, message);
+                send(client_sock, buffer, strlen(buffer), 0);
+            } else {
+                send(client_sock, message, strlen(message), 0);
+            }
         }
 
         bzero(message, MAX_SIZE);
@@ -152,15 +155,11 @@ void send_msg_handler() {
 }
 
 void recv_msg_handler() {
-	char message[MAX_SIZE];
     while (1) {
-        int receive = recv(client_sock, message, MAX_SIZE, 0);
-        if (receive > 0) {
-            printf("%s", message);
-        } else if (receive == 0) {
-            break;
-        }
-        memset(message, 0, sizeof(message));
+        memset(received_message, 0, MAX_SIZE);
+        int receive = recv(client_sock, received_message, MAX_SIZE, 0);
+        printf("%s\n", received_message);
+
     }
 
     return;
