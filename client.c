@@ -17,14 +17,36 @@ struct sockaddr_in server_addr;
 socklen_t addr_size;
 char received_message[1024];
 char send_message[1024];
+char message[1024];
 char name[1024];
 int n;
 int is_login = 0;
+int check = 0;
 
 int is_valid_address(char *ipAddress) {
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
     return result;
+}
+
+void split_buffer(char *buffer_out, char *message, char *name) {
+    int count_n = 0;
+    int count_m = 0;
+    for (int i = 0; i < strlen(buffer_out); i++) {
+        if (buffer_out[i] != '@') {
+            message[count_m++] = buffer_out[i];
+        } else {
+            break;
+        }
+    }
+
+    message[count_m] = '\0';
+
+    for (int i = count_m + 1; i < strlen(buffer_out); i++) {
+        name[count_n++] = buffer_out[i];
+    }
+
+    name[count_n] = '\0';
 }
 
 void handle_login(char username[], char password[]) {
@@ -136,10 +158,16 @@ void send_msg_handler() {
 
         if (strcmp(message, "exit") == 0) {
             break;
-        } else if (strcmp(message, "quit") == 0 || strlen(message) == 1 || strcmp(message, "out") == 0) {
+        } else if (strlen(message) > 1 && strcmp(message, "quit") == 0) {
             is_login = 0;
+            check = 0;
             send(client_sock, message, strlen(message), 0);
-        } else {
+        } else if (strlen(message) > 1 && strcmp(message, "out") == 0) {
+            check = 0;
+            send(client_sock, message, strlen(message), 0);
+        } else if (strlen(message) == 1){
+            send(client_sock, message, strlen(message), 0);
+        }else {
             if (is_login) {
                 sprintf(buffer, "%s: %s\n", name, message);
                 send(client_sock, buffer, strlen(buffer), 0);
@@ -158,7 +186,24 @@ void recv_msg_handler() {
     while (1) {
         memset(received_message, 0, MAX_SIZE);
         int receive = recv(client_sock, received_message, MAX_SIZE, 0);
-        printf("%s\n", received_message);
+        // printf("Received message: %s\n", received_message);
+        for (int i = 0; i < strlen(received_message); i++) {
+            if (received_message[i] == '@') {
+                check = 1;
+                break;
+            }
+        }
+        if (check) {
+            split_buffer(received_message, message, send_message);
+        } else {
+            strcpy(message, received_message);
+        }
+        if (strcmp(message, "Logined") == 0) {
+            printf("User has logined!\n");
+            is_login = 1;
+            strcpy(name, send_message);
+        }
+        printf("%s\n", message);
 
     }
 

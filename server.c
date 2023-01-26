@@ -20,6 +20,8 @@ socklen_t addr_size;
 char sent_message[1024];
 char received_message[1024];
 int n, is_login = 0;
+int first_join = 1;
+
 pthread_t tid;
 
 client_t *clients[MAX_CLIENTS];
@@ -171,13 +173,12 @@ void send_message_to_one(char *message, int uid, int to_uid) {
 }
 
 void send_message_to_client(char *message, int uid) {
-    int count = 0;
     pthread_mutex_lock(&clients_mutex);
-    // printf("Message: %s\nMessage length: %d\n", message, strlen(message));
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid == uid) {
-                count = send(clients[i]->sockfd, message, strlen(message), 0);
+                printf("Client name: %s - client id: %d\n", clients[i]->name, clients[i]->uid);
+                send(clients[i]->sockfd, message, strlen(message), 0);
 				break;
 			}
 		}
@@ -208,7 +209,7 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
 
     if (!check) {
         bzero(buffer_out, 1024);
-        strcpy(buffer_out, "Your account does not exist or wrong password");
+        strcpy(buffer_out, "Your account does not exist or wrong password\n");
         send_message_to_client(buffer_out, client_info->uid);
 
         return 0;
@@ -216,10 +217,11 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
         char name[MAX_SIZE];
         int user_id;
         get_user_info(db, stmt, username, password, name, &user_id);
+        printf("Name: %s - User id: %d\n", name, user_id);
 
         bzero(buffer_out, 1024);
-        strcpy(buffer_out, name);
-        send_message_to_client(buffer_out, client_info->uid);
+        sprintf(buffer_out, "Logined@%s", name);
+        printf("Buffer out: %s\n", buffer_out);
 
         queue_remove(clients_mutex, clients, client_info->uid);
 
@@ -229,8 +231,7 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
         strcpy(client_info->name, name);
 
         queue_add(clients_mutex, clients, client_info);
-
-        traverse_queue(clients);
+        send_message_to_client(buffer_out, client_info->uid);
 
         return 1;
     }
@@ -334,9 +335,10 @@ void *handle_client() {
 
         sprintf(buffer_out, "%s has online\n", client_info->name);
         printf("%s", buffer_out);
+        printf("%s user id: %d\n", client_info->name, client_info->uid);
         send_message_to_all(buffer_out, client_info->uid);
 
-        while(1) {            
+        while(1) {
             bzero(buffer_out, 1024);
             strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\nYour choice: ");
             send_message_to_client(buffer_out, client_info->uid);
@@ -380,10 +382,17 @@ void *handle_client() {
         }
 
         while(1) {
-            printf("CHAT ROOM\n");
             if (logout_flag == 1 || leave_flag == 1 || out_flag == 1) {
                 break;
             }
+            bzero(buffer_out, MAX_SIZE);
+            if (first_join) {
+                strcpy(buffer_out, "Welcome to Chat room\n");
+                first_join = 0;
+            }
+
+            printf("First join: %d\n", first_join);
+            send_message_to_client(buffer_out, client_info->uid);
 
             bzero(buffer_out, MAX_SIZE);
             int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
@@ -395,13 +404,16 @@ void *handle_client() {
                     send_message_to_all(buffer_out, client_info->uid);
                     logout_flag = 1;
                     is_login = 0;
+                    first_join = 1;
                     break;
                 } else if (strlen(buffer_out) > 0 && strcmp(buffer_out, "out") == 0) {
                     out_flag = 1;
+                    first_join = 1;
+                    break;
                 } else if (strlen(buffer_out) > 0) {
                     printf("Buffer out: %s", buffer_out);
                     split_buffer(buffer_out, option, message, name);
-                    printf("Option: %s - Message: %s\n",option, message);
+                    printf("Name: %s - Option: %s - Message: %s\n",name, option, message);
                     char new_message[MAX_SIZE];
                     sprintf(new_message, "%s : %s", name, message);
                     printf("%s\n", new_message);
