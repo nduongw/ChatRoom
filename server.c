@@ -173,7 +173,7 @@ void send_message_to_one(char *message, int uid, int to_uid) {
 void send_message_to_client(char *message, int uid) {
     int count = 0;
     pthread_mutex_lock(&clients_mutex);
-    printf("Message: %s\nMessage length: %d\n", message, strlen(message));
+    // printf("Message: %s\nMessage length: %d\n", message, strlen(message));
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid == uid) {
@@ -236,6 +236,14 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
     }
 }
 
+void create_group_chat() {
+    return;
+}
+
+void block_friend() {
+    return;
+}
+
 // void send_message_to_group(char *message, int uid) {
 //     pthread_mutex_lock(&clients_mutex);
 
@@ -261,6 +269,8 @@ void *handle_client() {
     char option[MAX_SIZE], message[MAX_SIZE];
     int leave_flag = 0;
     int logout_flag = 0;
+    int is_chat = 0;
+    int out_flag = 0;
 
     bzero(received_message, 1024);
     recv(client_sock, received_message, sizeof(received_message), 0);
@@ -316,11 +326,6 @@ void *handle_client() {
     }
 
     while(1) {
-        // if (logout_flag == 1) {
-        //     bzero(buffer_out, MAX_SIZE);
-        //     int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
-        //     printf("Test message: %s\n", buffer_out);
-        // }
         if (leave_flag == 1) {
             break;
         }
@@ -331,8 +336,52 @@ void *handle_client() {
         printf("%s", buffer_out);
         send_message_to_all(buffer_out, client_info->uid);
 
+        while(1) {            
+            bzero(buffer_out, 1024);
+            strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\nYour choice: ");
+            send_message_to_client(buffer_out, client_info->uid);
+
+            bzero(buffer_out, MAX_SIZE);
+            int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
+
+            int choice = atoi(buffer_out);
+
+            switch(choice) {
+                case 1:
+                    create_group_chat();
+                    break;
+                case 2:
+                    block_friend();
+                    break;
+                case 3:
+                    is_chat = 1;
+                    out_flag = 0;
+                    break;
+                default:
+                    strcpy(buffer_out, "Invalid choice\n");
+                    send_message_to_client(buffer_out, client_info->uid);
+                    break;
+            }
+
+            if (is_chat){
+                printf("Go to chat\n");
+                break;
+            }
+
+            if (leave_flag == 1) {
+                // printf("Bye\n");
+                // close(client_info->sockfd);
+                // queue_remove(clients_mutex, clients, client_info->uid);
+                // free(client_info);
+                // pthread_detach(pthread_self());
+                // return NULL;
+                break;
+            }
+        }
+
         while(1) {
-            if (logout_flag == 1 || leave_flag == 1) {
+            printf("CHAT ROOM\n");
+            if (logout_flag == 1 || leave_flag == 1 || out_flag == 1) {
                 break;
             }
 
@@ -347,6 +396,8 @@ void *handle_client() {
                     logout_flag = 1;
                     is_login = 0;
                     break;
+                } else if (strlen(buffer_out) > 0 && strcmp(buffer_out, "out") == 0) {
+                    out_flag = 1;
                 } else if (strlen(buffer_out) > 0) {
                     printf("Buffer out: %s", buffer_out);
                     split_buffer(buffer_out, option, message, name);
@@ -376,7 +427,6 @@ void *handle_client() {
             if (is_login == 1) {
                 break;
             }
-            printf("Go here\n");
             
             bzero(buffer_out, 1024);
             strcpy(buffer_out, "Chatting App\n1.Login\n2.Logout\n3.Register\nYour choice: ");

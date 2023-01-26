@@ -136,7 +136,7 @@ void send_msg_handler() {
 
         if (strcmp(message, "exit") == 0) {
             break;
-        } else if (strcmp(message, "quit") == 0 || strlen(message) == 1) {
+        } else if (strcmp(message, "quit") == 0 || strlen(message) == 1 || strcmp(message, "out") == 0) {
             is_login = 0;
             send(client_sock, message, strlen(message), 0);
         } else {
