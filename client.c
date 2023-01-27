@@ -8,6 +8,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
+
+#define NUM_CHUNK 2
 
 #define MAX_SIZE 1024
 volatile sig_atomic_t flag = 0;
@@ -22,6 +25,13 @@ char name[1024];
 int n;
 int is_login = 0;
 int check = 0;
+
+char *chunk_buffer;
+int full_chunk_size, offset;
+int chunk_count = 0;
+char file_ext[10];
+char file_name[50];
+FILE *file;
 
 int is_valid_address(char *ipAddress) {
     struct sockaddr_in sa;
@@ -186,25 +196,101 @@ void recv_msg_handler() {
     while (1) {
         memset(received_message, 0, MAX_SIZE);
         int receive = recv(client_sock, received_message, MAX_SIZE, 0);
-        // printf("Received message: %s\n", received_message);
-        for (int i = 0; i < strlen(received_message); i++) {
+
+        if (strcmp(received_message, "file") == 0) {
+            bzero(send_message, 1024);
+            strcpy(send_message, "ok");
+            printf("Client: %s\n", send_message);
+            send(client_sock, send_message, strlen(send_message), 0);
+
+            bzero(received_message, 1024);
+            recv(client_sock, received_message, sizeof(received_message), 0);
+            printf("%s\n", received_message);
+
+            strcpy(file_name, "tcp_receiver.");
+            strcat(file_name, received_message);
+
+            file = fopen(file_name, "w");
+            if (!file) {
+                printf("Cant open file to write\n");
+                return ;
+            }
+
+            bzero(send_message, 1024);
+            strcpy(send_message, "File extension done");
+            printf("Client: %s\n", send_message);
+            send(client_sock, send_message, strlen(send_message), 0);
+
+            bzero(received_message, 1024);
+            recv(client_sock, received_message, sizeof(received_message), 0);
+            printf("%s\n", received_message);
+            full_chunk_size = atoi(received_message);
+            chunk_buffer = (char *)malloc(full_chunk_size);
+
+            bzero(send_message, 1024);
+            strcpy(send_message, "Chunk size done");
+            printf("Client: %s\n", send_message);
+            send(client_sock, send_message, strlen(send_message), 0);
+
+            bzero(received_message, 1024);
+            recv(client_sock, received_message, sizeof(received_message), 0);
+            printf("%s\n", received_message);
+            offset = atoi(received_message);
+
+            
+
+            while(1) {
+                int supposed_size;
+                if (chunk_count < NUM_CHUNK) {
+                    supposed_size = full_chunk_size;
+                } else {
+                    supposed_size = offset;
+                }
+                int count;
+                do {
+                    ioctl(client_sock, FIONREAD, &count);
+                } while (count < supposed_size);
+
+                bzero(chunk_buffer, full_chunk_size);
+                n = recv(client_sock, chunk_buffer, full_chunk_size, 0);
+                chunk_count++;
+                printf("Chunk count: %d\n", chunk_count);
+
+                fwrite(chunk_buffer, 1, n, file);
+
+                if ((offset == 0 && chunk_count == NUM_CHUNK) || chunk_count > NUM_CHUNK) {
+                    printf("TCP Receiver: file transfer finished\n");
+                    fclose(file);
+                    break;
+                }
+
+                if (1) {
+                    bzero(send_message, 1024);
+                    strcpy(send_message, "Got it");
+                    printf("Client: %s\n", send_message);
+                    send(client_sock, send_message, strlen(send_message), 0);
+                }
+
+            }
+        } else {
+            for (int i = 0; i < strlen(received_message); i++) {
             if (received_message[i] == '@') {
                 check = 1;
                 break;
             }
+            }
+            if (check) {
+                split_buffer(received_message, message, send_message);
+            } else {
+                strcpy(message, received_message);
+            }
+            if (strcmp(message, "Logined") == 0) {
+                printf("User has logined!\n");
+                is_login = 1;
+                strcpy(name, send_message);
+            }
+            printf("%s\n", message);
         }
-        if (check) {
-            split_buffer(received_message, message, send_message);
-        } else {
-            strcpy(message, received_message);
-        }
-        if (strcmp(message, "Logined") == 0) {
-            printf("User has logined!\n");
-            is_login = 1;
-            strcpy(name, send_message);
-        }
-        printf("%s\n", message);
-
     }
 
     return;

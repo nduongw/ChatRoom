@@ -206,41 +206,6 @@ void receive_message(int client_sock, char *received_message) {
     printf("Received messege: %s\n", received_message);
 }
 
-void encode_password(char *password, char *digit_string, char *alpha_string) {
-    char number[100];
-    char character[100];
-    int count_n = 0;
-    int count_c = 0;
-
-    for (int i = 0; i < strlen(password); i++) {
-        if (isdigit(password[i])) {
-            number[count_n++] = password[i];
-        } else if (isalpha(password[i])) {
-            character[count_c++] = password[i];
-        } else {
-            strcpy(number, "???");
-            strcpy(character, "???");
-            return;
-        }
-    }
-    
-    if (count_c == 0) {
-        strcpy(character, "###");
-    } else {
-        character[count_c] = '\0';
-    }
-
-    if (count_n == 0) {
-        strcpy(number, "###");
-    } else {
-        number[count_n] = '\0';
-    }
-
-    strcpy(digit_string, number);
-    strcpy(alpha_string, character);
-    return;
-}
-
 /* Add clients to queue */
 void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl){
 	pthread_mutex_lock(&clients_mutex);

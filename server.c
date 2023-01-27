@@ -29,6 +29,15 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char buffer_out[MAX_SIZE];
 
+char filename[50] = "cat.jpeg";
+int full_chunk_size, offset;
+char file_ext[10]; // file extension of the input file
+char *chunk_buffer; // save the file chunk to write to client later
+char confirm_buffer[256];
+char message[MAX_SIZE];
+char itg[MAX_SIZE];
+FILE *file;
+
 
 int handle_login(char username[], char password[], client_t *client_info) {
     char message[MAX_SIZE] = "Input your account: ";
@@ -177,9 +186,94 @@ void send_message_to_client(char *message, int uid) {
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid == uid) {
-                printf("Client name: %s - client id: %d\n", clients[i]->name, clients[i]->uid);
                 send(clients[i]->sockfd, message, strlen(message), 0);
 				break;
+			}
+		}
+	}
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+const char *get_filename_ext(const char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
+
+void send_file_to_client(char *message, int uid) {
+    pthread_mutex_lock(&clients_mutex);
+    // strcpy(filename, message);
+    // printf("File name:%s\n", filename);
+    // file = fopen(filename, "r");
+    // if (!file) {
+    //     printf("Cant open file to read\n");
+    //     return;
+    // }
+
+    size_t pos = ftell(file);
+    fseek(file, 0, SEEK_END);
+    size_t file_length = ftell(file);
+    fseek(file, pos, SEEK_SET);
+    printf("File length: %ld - File begin: %ld\n", file_length, pos);
+
+    full_chunk_size = file_length / NUM_CHUNK;
+    offset = file_length % NUM_CHUNK;
+
+    printf("Chunk size: %d - offset: %d\n", full_chunk_size, offset);
+    chunk_buffer = (char *)malloc(full_chunk_size);
+
+    for(int i = 0;i < MAX_CLIENTS; i++) {
+		if(clients[i]) {
+			if(clients[i]->uid != uid) {
+                char m_flag[20] = "file";
+                send(clients[i]->sockfd, m_flag, strlen(m_flag), 0);
+
+                bzero(received_message, 1024);
+                recv(clients[i]->sockfd, received_message, sizeof(received_message), 0);
+                printf("Client sending : %s\n", received_message);
+
+                strcpy(message, get_filename_ext(filename));
+                printf("Server: %s\n", message);
+                send(clients[i]->sockfd, message, strlen(message), 0);
+
+                bzero(received_message, 1024);
+                recv(clients[i]->sockfd, received_message, sizeof(received_message), 0);
+                printf("Client sending 2: %s\n", received_message);
+                
+                bzero(message, 1024);
+                sprintf(message, "%d", full_chunk_size);
+                printf("Server: %s\n", message);
+                send(clients[i]->sockfd, message, strlen(message), 0);
+
+                bzero(received_message, 1024);
+                recv(clients[i]->sockfd, received_message, sizeof(received_message), 0);
+                printf("Client sending 3: %s\n", received_message);
+                
+                bzero(message, 1024);
+                sprintf(message, "%d", offset);
+                printf("Server: %s\n", message);
+                send(clients[i]->sockfd, message, strlen(message), 0);
+                
+                int total_bytes = 0;
+                while(1) {
+                    bzero(chunk_buffer, full_chunk_size);
+                    int bytes_read = fread(chunk_buffer, 1, full_chunk_size, file);
+                    total_bytes += bytes_read;
+                    printf("Total bytes: %d\n", total_bytes);
+                    if (bytes_read == 0) {
+                        printf("Transfer successful\n");
+                        break;
+                    }
+
+                    n = send(clients[i]->sockfd, chunk_buffer, bytes_read, 0);
+
+                    if (1) {
+                        bzero(received_message, 1024);
+                        recv(clients[i]->sockfd, received_message, sizeof(received_message), 0);
+                        printf("%s\n", received_message);
+                    }
+                }
 			}
 		}
 	}
@@ -267,7 +361,7 @@ void *handle_client() {
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char name[MAX_SIZE];
-    char option[MAX_SIZE], message[MAX_SIZE];
+    char option[MAX_SIZE];
     int leave_flag = 0;
     int logout_flag = 0;
     int is_chat = 0;
@@ -421,6 +515,9 @@ void *handle_client() {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
                         send_message_to_one(new_message, client_info->uid, 1);
+                    } else if (strcmp(option, "file") == 0) {
+                        printf("File name: %s\n", message);
+                        send_file_to_client(message, client_info->uid); 
                     }
                 }
             } else if (receive == 0 || strcmp(buffer_out, "exit") == 0){
@@ -497,6 +594,12 @@ void *handle_client() {
 }
 
 int main(int argc, char *argv[]) {
+    file = fopen(filename, "r");
+    if (!file) {
+        printf("Cant open file to read\n");
+        return -1;
+    }
+
     char *server_ip = "127.0.0.1";
     int option = 1;
 

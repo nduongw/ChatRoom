@@ -10,6 +10,7 @@ typedef struct{
 
 #define MAX_SIZE 1024
 #define MAX_CLIENTS 100
+#define NUM_CHUNK 2
 
 int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[]);
 void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[], int *id);
@@ -22,7 +23,6 @@ void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int mem
 
 void send_message(int client_sock, char *packet, char *messege);
 void receive_message(int client_sock, char *received_message);
-void encode_password(char *password, char *digit_string, char *alpha_string);
 
 void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl);
 void queue_remove(pthread_mutex_t clients_mutex, client_t *clients[], int uid);
