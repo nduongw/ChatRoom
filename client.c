@@ -160,13 +160,14 @@ void recv_msg_handler() {
         char server_file[100];
         int file_length;
         char flag[30];
+        int count = 0;
 
         bzero(message, MAX_SIZE);
         int receive = recv(client_sock, message, MAX_SIZE, 0);
         if (receive > 15) {
             sscanf(message, "%s %s %d", flag, server_file, &file_length);
         }
-        printf("Message: %s\n", message);
+
         if (strcmp(flag, "recvfile") == 0) {
             FILE *fptr;
             char client_file[100];
@@ -178,10 +179,7 @@ void recv_msg_handler() {
                 printf("Cant open file to write\n");
                 return;
             }
-            int total = 0;
-            int count = 0;
             
-            printf("File length: %d\n", file_length);
             full_chunk_size = file_length / NUM_CHUNK;
             offset = file_length % NUM_CHUNK;
 
@@ -197,17 +195,13 @@ void recv_msg_handler() {
 
                 if (count < NUM_CHUNK ) {
                     fwrite(message, 1, full_chunk_size, fptr);
-                    total += full_chunk_size;
                 } else if (count >= NUM_CHUNK && offset != 0) {
                     fwrite(message, 1, offset, fptr);
-                    total += offset;
                 }
 
                 count++;
-                printf("Total: %d\n", total);
             }
             printf("\nGet file done\n");
-            printf("Total: %d\n", total);
             fclose(fptr);
         } else {
             for (int i = 0; i < strlen(received_message); i++) {
@@ -354,40 +348,30 @@ int main(int argc, char *argv[]) {
 
                 full_chunk_size = file_length / NUM_CHUNK;
                 offset = file_length % NUM_CHUNK;
-                printf("file_length: %d - full chunk size: %d - offset: %d\n", file_length, full_chunk_size, offset);
                 sprintf(message, "%d", file_length);
                 send(client_sock, message, sizeof(message), 0);
                 int count = 0;
-                int total = 0;
                 int count2;
                 while(1) {
-                    printf("Count: %d\n", count);
-
                     bzero(message, MAX_SIZE);
                     if (count < NUM_CHUNK) {
-                        count2 = fread(message, 1, full_chunk_size, fptr);
-                        total += count2;
+                        fread(message, 1, full_chunk_size, fptr);
                     } else if(count >= NUM_CHUNK && offset != 0) {
-                        count2 = fread(message, 1, offset, fptr);
-                        printf("Message length - offset: %d\n", strlen(message));
-                        total += count2;
+                        fread(message, 1, offset, fptr);
                         offset = 0;
                     } else {
                         strcpy(message, "done");
                         send(client_sock, message, sizeof(message), 0);
                         break;
                     }
-
                     if (send(client_sock, message, sizeof(message), 0) == -1) {
                         printf("Fail to send file\n");
                         break;
                     }
-                    printf("Message length: %d - Total: %d\n", strlen(message), total);
-
                     count++;
                 }
-                printf("Send file to server done!\n");
                 fclose(fptr);
+
             } else {
                 if (is_login) {
                     sprintf(buffer, "%s: %s\n", name, message);

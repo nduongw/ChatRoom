@@ -209,19 +209,15 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
                 send(clients[i]->sockfd, message, strlen(message), 0);
                 
                 int count = 0;
-                int total = 0;
-                int count2;
+
                 while(1) {
                     printf("Count: %d\n", count);
 
                     bzero(message, MAX_SIZE);
                     if (count < NUM_CHUNK) {
-                        count2 = fread(message, 1, full_chunk_size, fptr);
-                        total += count2;
+                        fread(message, 1, full_chunk_size, fptr);
                     } else if(count >= NUM_CHUNK && offset != 0) {
-                        count2 = fread(message, 1, offset, fptr);
-                        printf("Message length - offset: %d\n", strlen(message));
-                        total += count2;
+                        fread(message, 1, offset, fptr);
                         offset = 0;
                     } else {
                         strcpy(message, "done");
@@ -233,11 +229,9 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
                         printf("Fail to send file\n");
                         break;
                     }
-                    printf("Message length: %d - Total: %d\n", strlen(message), total);
 
                     count++;
                 }
-                printf("Send file to client done!\n");
                 fclose(fptr);
 			}
 		}
@@ -474,7 +468,6 @@ void *handle_client() {
                 } else if (strcmp(buffer_out, "sendfile") == 0) {
                     bzero(message, MAX_SIZE);
                     recv(client_info->sockfd, message, MAX_SIZE, 0);
-                    printf("File name client send: %s\n", message);
                     char server_file[100];
 
                     sprintf(server_file, "server_%s", message);
@@ -491,7 +484,6 @@ void *handle_client() {
                     bzero(message, MAX_SIZE);
                     recv(client_info->sockfd, message, MAX_SIZE, 0);
                     file_length = atoi(message);
-                    printf("File length: %d\n", file_length);
                     full_chunk_size = file_length / NUM_CHUNK;
                     offset = file_length % NUM_CHUNK;
 
@@ -507,17 +499,12 @@ void *handle_client() {
 
                         if (count < NUM_CHUNK ) {
                             fwrite(message, 1, full_chunk_size, fptr);
-                            total += full_chunk_size;
                         } else if (count >= NUM_CHUNK && offset != 0) {
                             fwrite(message, 1, offset, fptr);
-                            total += offset;
                         }
 
                         count++;
-                        printf("Total: %d\n", total);
                     }
-                    printf("\nGet file done\n");
-                    printf("Total: %d\n", total);
                     fclose(fptr);
                     fptr = fopen(server_file, "r");
                     if (fptr == NULL) {
@@ -538,10 +525,6 @@ void *handle_client() {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
                         send_message_to_one(new_message, client_info->uid, 1);
-                    } else if (strcmp(option, "file") == 0) {
-                        printf("File name: %s\n", message);
-                        // send_file_to_client(message, client_info->uid); 
-                        
                     }
                 }
             } else if (receive == 0 || strcmp(buffer_out, "exit") == 0){
