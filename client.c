@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <sys/ioctl.h>
 
-#define NUM_CHUNK 2
+#define NUM_CHUNK 20
 
 #define MAX_SIZE 1024
 volatile sig_atomic_t flag = 0;
@@ -159,119 +159,55 @@ void str_trim_lf (char* arr, int length) {
 }
 
 void send_msg_handler() {
-    char message[MAX_SIZE];
-	char buffer[MAX_SIZE];
-
-    while(1) {
-        fgets(message, MAX_SIZE, stdin);
-        str_trim_lf(message, MAX_SIZE);
-
-        if (strcmp(message, "exit") == 0) {
-            break;
-        } else if (strlen(message) > 1 && strcmp(message, "quit") == 0) {
-            is_login = 0;
-            check = 0;
-            send(client_sock, message, strlen(message), 0);
-        } else if (strlen(message) > 1 && strcmp(message, "out") == 0) {
-            check = 0;
-            send(client_sock, message, strlen(message), 0);
-        } else if (strlen(message) == 1){
-            send(client_sock, message, strlen(message), 0);
-        }else {
-            if (is_login) {
-                sprintf(buffer, "%s: %s\n", name, message);
-                send(client_sock, buffer, strlen(buffer), 0);
-            } else {
-                send(client_sock, message, strlen(message), 0);
-            }
-        }
-
-        bzero(message, MAX_SIZE);
-        bzero(buffer, MAX_SIZE);
-    }
-    catch_ctrl_c_and_exit(2);
+    
 }
 
 void recv_msg_handler() {
     while (1) {
         memset(received_message, 0, MAX_SIZE);
         int receive = recv(client_sock, received_message, MAX_SIZE, 0);
-
-        if (strcmp(received_message, "file") == 0) {
-            bzero(send_message, 1024);
-            strcpy(send_message, "ok");
-            printf("Client: %s\n", send_message);
-            send(client_sock, send_message, strlen(send_message), 0);
-
-            bzero(received_message, 1024);
-            recv(client_sock, received_message, sizeof(received_message), 0);
-            printf("%s\n", received_message);
-
-            strcpy(file_name, "tcp_receiver.");
-            strcat(file_name, received_message);
-
-            file = fopen(file_name, "w");
-            if (!file) {
+        printf("Message: %s\n", received_message);
+        if (strcmp(received_message, "recvfile") == 0) {
+            FILE *fptr;
+            fptr = fopen("client_cat.jpeg", "w");
+            if (fptr == NULL) {
                 printf("Cant open file to write\n");
-                return ;
+                return NULL;
             }
-
-            bzero(send_message, 1024);
-            strcpy(send_message, "File extension done");
-            printf("Client: %s\n", send_message);
-            send(client_sock, send_message, strlen(send_message), 0);
-
-            bzero(received_message, 1024);
-            recv(client_sock, received_message, sizeof(received_message), 0);
-            printf("%s\n", received_message);
-            full_chunk_size = atoi(received_message);
-            chunk_buffer = (char *)malloc(full_chunk_size);
-
-            bzero(send_message, 1024);
-            strcpy(send_message, "Chunk size done");
-            printf("Client: %s\n", send_message);
-            send(client_sock, send_message, strlen(send_message), 0);
-
-            bzero(received_message, 1024);
-            recv(client_sock, received_message, sizeof(received_message), 0);
-            printf("%s\n", received_message);
-            offset = atoi(received_message);
-
+            int total = 0;
+            int count = 0;
+            int file_length;
             
+            recv(client_sock, message, MAX_SIZE, 0);
+            file_length = atoi(message);
+            printf("File length: %d\n", file_length);
+            full_chunk_size = file_length / NUM_CHUNK;
+            offset = file_length % NUM_CHUNK;
 
             while(1) {
-                int supposed_size;
-                if (chunk_count < NUM_CHUNK) {
-                    supposed_size = full_chunk_size;
-                } else {
-                    supposed_size = offset;
+                bzero(message, MAX_SIZE);
+                n = recv(client_sock, message, MAX_SIZE, 0);
+                if (strcmp(message, "done") == 0) {
+                    break;
                 }
-                int count;
-                do {
-                    ioctl(client_sock, FIONREAD, &count);
-                } while (count < supposed_size);
-
-                bzero(chunk_buffer, full_chunk_size);
-                n = recv(client_sock, chunk_buffer, full_chunk_size, 0);
-                chunk_count++;
-                printf("Chunk count: %d\n", chunk_count);
-
-                fwrite(chunk_buffer, 1, n, file);
-
-                if ((offset == 0 && chunk_count == NUM_CHUNK) || chunk_count > NUM_CHUNK) {
-                    printf("TCP Receiver: file transfer finished\n");
-                    fclose(file);
+                if (n <= 0) {
                     break;
                 }
 
-                if (1) {
-                    bzero(send_message, 1024);
-                    strcpy(send_message, "Got it");
-                    printf("Client: %s\n", send_message);
-                    send(client_sock, send_message, strlen(send_message), 0);
+                if (count < NUM_CHUNK ) {
+                    fwrite(message, 1, full_chunk_size, fptr);
+                    total += full_chunk_size;
+                } else if (count >= NUM_CHUNK && offset != 0) {
+                    fwrite(message, 1, offset, fptr);
+                    total += offset;
                 }
 
+                count++;
+                printf("Total: %d\n", total);
             }
+            printf("\nGet file done\n");
+            printf("Total: %d\n", total);
+            fclose(fptr);
         } else {
             for (int i = 0; i < strlen(received_message); i++) {
             if (received_message[i] == '@') {
@@ -365,23 +301,100 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    pthread_t send_msg_thread;
-    if (pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0) {
-        printf("Error: pthread\n");
-        return -1;
-    }
-
     pthread_t recv_msg_thread;
     if (pthread_create(&recv_msg_thread, NULL, (void *) recv_msg_handler, NULL) != 0) {
         printf("Error: pthread\n");
         return -1;
     }
+    char message[MAX_SIZE];
+    char buffer[MAX_SIZE];
 
     while(1){
         if(flag) {
             printf("Bye\n");
             break;
         }
+
+        while(1) {
+            fgets(message, MAX_SIZE, stdin);
+            str_trim_lf(message, MAX_SIZE);
+
+            if (strcmp(message, "exit") == 0) {
+                break;
+            } else if (strlen(message) > 1 && strcmp(message, "quit") == 0) {
+                is_login = 0;
+                check = 0;
+                send(client_sock, message, strlen(message), 0);
+            } else if (strlen(message) > 1 && strcmp(message, "out") == 0) {
+                check = 0;
+                send(client_sock, message, strlen(message), 0);
+            } else if (strlen(message) == 1){
+                send(client_sock, message, strlen(message), 0);
+            } else if (strcmp(message, "sendfile") == 0) {
+                FILE *fptr;
+                fptr = fopen("cat.jpeg", "r");
+                if (fptr == NULL) {
+                    printf("Cant open file to read\n");
+                    break;
+                } else {
+                    printf("Opened file!\n");
+                }
+
+                send(client_sock, message, sizeof(message), 0);
+                size_t pos = ftell(fptr);
+                fseek(fptr, 0, SEEK_END);
+                size_t file_length = ftell(fptr);
+                fseek(fptr, pos, SEEK_SET);
+
+                full_chunk_size = file_length / NUM_CHUNK;
+                offset = file_length % NUM_CHUNK;
+                printf("file_length: %d - full chunk size: %d - offset: %d\n", file_length, full_chunk_size, offset);
+                sprintf(message, "%d", file_length);
+                send(client_sock, message, sizeof(message), 0);
+                int count = 0;
+                int total = 0;
+                int count2;
+                while(1) {
+                    printf("Count: %d\n", count);
+
+                    bzero(message, MAX_SIZE);
+                    if (count < NUM_CHUNK) {
+                        count2 = fread(message, 1, full_chunk_size, fptr);
+                        total += count2;
+                    } else if(count >= NUM_CHUNK && offset != 0) {
+                        count2 = fread(message, 1, offset, fptr);
+                        printf("Message length - offset: %d\n", strlen(message));
+                        total += count2;
+                        offset = 0;
+                    } else {
+                        strcpy(message, "done");
+                        send(client_sock, message, sizeof(message), 0);
+                        break;
+                    }
+
+                    if (send(client_sock, message, sizeof(message), 0) == -1) {
+                        printf("Fail to send file\n");
+                        break;
+                    }
+                    printf("Message length: %d - Total: %d\n", strlen(message), total);
+
+                    count++;
+                }
+                printf("Send file to server done!\n");
+                fclose(fptr);
+            } else {
+                if (is_login) {
+                    sprintf(buffer, "%s: %s\n", name, message);
+                    send(client_sock, buffer, strlen(buffer), 0);
+                } else {
+                    send(client_sock, message, strlen(message), 0);
+                }
+            }
+
+            bzero(message, MAX_SIZE);
+            bzero(buffer, MAX_SIZE);
+        }
+        catch_ctrl_c_and_exit(2);
     }
 
     close(client_sock);

@@ -10,7 +10,7 @@ typedef struct{
 
 #define MAX_SIZE 1024
 #define MAX_CLIENTS 100
-#define NUM_CHUNK 2
+#define NUM_CHUNK 20
 
 int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[]);
 void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[], int *id);
