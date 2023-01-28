@@ -26,10 +26,7 @@ int n;
 int is_login = 0;
 int check = 0;
 
-char *chunk_buffer;
 int full_chunk_size, offset;
-int chunk_count = 0;
-char file_ext[10];
 char file_name[50];
 FILE *file;
 
@@ -158,28 +155,32 @@ void str_trim_lf (char* arr, int length) {
   }
 }
 
-void send_msg_handler() {
-    
-}
-
 void recv_msg_handler() {
     while (1) {
-        memset(received_message, 0, MAX_SIZE);
-        int receive = recv(client_sock, received_message, MAX_SIZE, 0);
-        printf("Message: %s\n", received_message);
-        if (strcmp(received_message, "recvfile") == 0) {
+        char server_file[100];
+        int file_length;
+        char flag[30];
+
+        bzero(message, MAX_SIZE);
+        int receive = recv(client_sock, message, MAX_SIZE, 0);
+        if (receive > 15) {
+            sscanf(message, "%s %s %d", flag, server_file, &file_length);
+        }
+        printf("Message: %s\n", message);
+        if (strcmp(flag, "recvfile") == 0) {
             FILE *fptr;
-            fptr = fopen("client_cat.jpeg", "w");
+            char client_file[100];
+            
+            sprintf(client_file, "client_%s", server_file);
+
+            fptr = fopen(client_file, "w");
             if (fptr == NULL) {
                 printf("Cant open file to write\n");
-                return NULL;
+                return;
             }
             int total = 0;
             int count = 0;
-            int file_length;
             
-            recv(client_sock, message, MAX_SIZE, 0);
-            file_length = atoi(message);
             printf("File length: %d\n", file_length);
             full_chunk_size = file_length / NUM_CHUNK;
             offset = file_length % NUM_CHUNK;
@@ -231,6 +232,7 @@ void recv_msg_handler() {
 
     return;
 }
+
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -331,16 +333,20 @@ int main(int argc, char *argv[]) {
             } else if (strlen(message) == 1){
                 send(client_sock, message, strlen(message), 0);
             } else if (strcmp(message, "sendfile") == 0) {
+                printf("Input file name: ");
+                scanf("%s", file_name);
                 FILE *fptr;
-                fptr = fopen("cat.jpeg", "r");
+                fptr = fopen(file_name, "r");
                 if (fptr == NULL) {
                     printf("Cant open file to read\n");
                     break;
                 } else {
                     printf("Opened file!\n");
                 }
-
                 send(client_sock, message, sizeof(message), 0);
+                bzero(message, MAX_SIZE);
+                send(client_sock, file_name, sizeof(file_name), 0);
+
                 size_t pos = ftell(fptr);
                 fseek(fptr, 0, SEEK_END);
                 size_t file_length = ftell(fptr);

@@ -29,13 +29,9 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char buffer_out[MAX_SIZE];
 
-char filename[50] = "cat.jpeg";
 int full_chunk_size, offset;
 char file_ext[10]; // file extension of the input file
-char *chunk_buffer; // save the file chunk to write to client later
-char confirm_buffer[256];
 char message[MAX_SIZE];
-char itg[MAX_SIZE];
 FILE *file;
 
 
@@ -201,17 +197,17 @@ const char *get_filename_ext(const char *filename) {
     return dot + 1;
 }
 
-void send_file_to_client(FILE *fptr, int file_length, int full_chunk_size, int offset, int uid) {
+void send_file_to_client(FILE *fptr, char *server_file, int file_length, int full_chunk_size, int offset, int uid) {
     pthread_mutex_lock(&clients_mutex);
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid != uid) {
+                char flag[20] = "recvfile";
                 bzero(message, MAX_SIZE);
-                strcpy(message, "recvfile");
+                sprintf(message, "%s %s %d", flag, server_file, file_length);
                 send(clients[i]->sockfd, message, strlen(message), 0);
-                sprintf(message, "%d", file_length);
-                send(clients[i]->sockfd, message, sizeof(message), 0);
+                
                 int count = 0;
                 int total = 0;
                 int count2;
@@ -476,7 +472,14 @@ void *handle_client() {
                     first_join = 1;
                     break;
                 } else if (strcmp(buffer_out, "sendfile") == 0) {
-                    fptr = fopen("server_cat.jpeg", "w");
+                    bzero(message, MAX_SIZE);
+                    recv(client_info->sockfd, message, MAX_SIZE, 0);
+                    printf("File name client send: %s\n", message);
+                    char server_file[100];
+
+                    sprintf(server_file, "server_%s", message);
+                    
+                    fptr = fopen(server_file, "w");
                     if (fptr == NULL) {
                         printf("Cant open file to write\n");
                         return NULL;
@@ -484,7 +487,8 @@ void *handle_client() {
                     int total = 0;
                     int count = 0;
                     int file_length;
-                    
+
+                    bzero(message, MAX_SIZE);
                     recv(client_info->sockfd, message, MAX_SIZE, 0);
                     file_length = atoi(message);
                     printf("File length: %d\n", file_length);
@@ -515,12 +519,12 @@ void *handle_client() {
                     printf("\nGet file done\n");
                     printf("Total: %d\n", total);
                     fclose(fptr);
-                    fptr = fopen("server_cat.jpeg", "r");
+                    fptr = fopen(server_file, "r");
                     if (fptr == NULL) {
                         printf("Cant open file to read\n");
                         return NULL;
                     }
-                    send_file_to_client(fptr, file_length, full_chunk_size, offset, client_info->uid);
+                    send_file_to_client(fptr, server_file, file_length, full_chunk_size, offset, client_info->uid);
 
 
                 } else if (strlen(buffer_out) > 0) {
@@ -614,12 +618,6 @@ void *handle_client() {
 }
 
 int main(int argc, char *argv[]) {
-    file = fopen(filename, "rb");
-    if (!file) {
-        printf("Cant open file to read\n");
-        return -1;
-    }
-
     char *server_ip = "127.0.0.1";
     int option = 1;
 
