@@ -174,7 +174,7 @@ void recv_msg_handler() {
             FILE *fptr;
             char client_file[100];
             
-            sprintf(client_file, "client_%s", server_file);
+            sprintf(client_file, "%s_%s", name, server_file);
 
             fptr = fopen(client_file, "w");
             if (fptr == NULL) {
@@ -337,8 +337,12 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 send(client_sock, message, sizeof(message), 0);
+                printf("Send to server:%s\n", message);
+                
                 bzero(message, MAX_SIZE);
-                send(client_sock, file_name, sizeof(file_name), 0);
+                strcpy(message, file_name);
+                send(client_sock, message, sizeof(message), 0);
+                printf("Send to server:%s\n", message);
 
                 size_t pos = ftell(fptr);
                 fseek(fptr, 0, SEEK_END);
@@ -349,6 +353,7 @@ int main(int argc, char *argv[]) {
                 offset = file_length % NUM_CHUNK;
                 sprintf(message, "%d", file_length);
                 send(client_sock, message, sizeof(message), 0);
+                printf("Send to server:%s\n", message);
                 int count = 0;
                 int count2;
                 while(1) {
@@ -370,6 +375,7 @@ int main(int argc, char *argv[]) {
                     count++;
                 }
                 fclose(fptr);
+                printf("Sent!\n");
 
             } else {
                 if (is_login) {

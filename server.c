@@ -204,6 +204,7 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
 		if(clients[i]) {
 			if(clients[i]->uid != uid) {
                 char flag[20] = "recvfile";
+                int offset_copy = offset;
                 bzero(message, MAX_SIZE);
                 sprintf(message, "%s %s %d", flag, server_file, file_length);
                 send(clients[i]->sockfd, message, strlen(message), 0);
@@ -216,9 +217,9 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
                     bzero(message, MAX_SIZE);
                     if (count < NUM_CHUNK) {
                         fread(message, 1, full_chunk_size, fptr);
-                    } else if(count >= NUM_CHUNK && offset != 0) {
-                        fread(message, 1, offset, fptr);
-                        offset = 0;
+                    } else if(count >= NUM_CHUNK && offset_copy != 0) {
+                        fread(message, 1, offset_copy, fptr);
+                        offset_copy = 0;
                     } else {
                         strcpy(message, "done");
                         send(clients[i]->sockfd, message, sizeof(message), 0);
@@ -232,8 +233,9 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
 
                     count++;
                 }
-                fclose(fptr);
 			}
+
+            fseek(fptr, 0, SEEK_SET);
 		}
 	}
 
@@ -468,6 +470,8 @@ void *handle_client() {
                 } else if (strcmp(buffer_out, "sendfile") == 0) {
                     bzero(message, MAX_SIZE);
                     recv(client_info->sockfd, message, MAX_SIZE, 0);
+                    printf("Client send: %s\n", message);
+
                     char server_file[100];
 
                     sprintf(server_file, "server_%s", message);
@@ -506,14 +510,13 @@ void *handle_client() {
                         count++;
                     }
                     fclose(fptr);
+                    printf("Get file!\n");
                     fptr = fopen(server_file, "r");
                     if (fptr == NULL) {
                         printf("Cant open file to read\n");
                         return NULL;
                     }
                     send_file_to_client(fptr, server_file, file_length, full_chunk_size, offset, client_info->uid);
-
-
                 } else if (strlen(buffer_out) > 0) {
                     printf("Buffer out: %s", buffer_out);
                     split_buffer(buffer_out, option, message, name);
