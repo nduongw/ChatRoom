@@ -21,7 +21,7 @@ socklen_t addr_size;
 char received_message[1024];
 char send_message[1024];
 char message[1024];
-char name[1024];
+char name[MAX_SIZE];
 int n;
 int is_login = 0;
 int check = 0;
@@ -56,7 +56,7 @@ void split_buffer(char *buffer_out, char *message, char *name) {
     name[count_n] = '\0';
 }
 
-void handle_login(char username[], char password[]) {
+void handle_login(char username[], char password[], char name[]) {
     bzero(received_message, 1024);
     recv(client_sock, received_message, MAX_SIZE, 0);
     printf("%s", received_message);
@@ -81,6 +81,7 @@ void handle_login(char username[], char password[]) {
     recv(client_sock, received_message, MAX_SIZE, 0);
     printf("%s\n", received_message);
     strcpy(name, received_message);
+    printf("Client name: %s\n", name);
 
     if (strlen(received_message) > 2) {
         is_login = 1;
@@ -158,15 +159,16 @@ void str_trim_lf (char* arr, int length) {
 void recv_msg_handler() {
     while (1) {
         char server_file[100];
+        char message_copy[MAX_SIZE];
         int file_length;
         char flag[30];
         int count = 0;
 
         bzero(message, MAX_SIZE);
         int receive = recv(client_sock, message, MAX_SIZE, 0);
-        if (receive > 15) {
-            sscanf(message, "%s %s %d", flag, server_file, &file_length);
-        }
+        strcpy(message_copy, message);
+
+        sscanf(message_copy, "%s %s %d", flag, server_file, &file_length);
 
         if (strcmp(flag, "recvfile") == 0) {
             FILE *fptr;
@@ -204,8 +206,8 @@ void recv_msg_handler() {
             printf("\nGet file done\n");
             fclose(fptr);
         } else {
-            for (int i = 0; i < strlen(received_message); i++) {
-            if (received_message[i] == '@') {
+            for (int i = 0; i < strlen(message); i++) {
+            if (message[i] == '@') {
                 check = 1;
                 break;
             }
@@ -213,8 +215,9 @@ void recv_msg_handler() {
             if (check) {
                 split_buffer(received_message, message, send_message);
             } else {
-                strcpy(message, received_message);
+                strcpy(message_copy, message);
             }
+
             if (strcmp(message, "Logined") == 0) {
                 printf("User has logined!\n");
                 is_login = 1;
@@ -264,7 +267,6 @@ int main(int argc, char *argv[]) {
 
     char username[MAX_SIZE];
     char password[MAX_SIZE];
-    char name[MAX_SIZE];
     char choice[MAX_SIZE];
 
     bzero(send_message, 1024);
@@ -284,7 +286,7 @@ int main(int argc, char *argv[]) {
         send(client_sock, send_message, strlen(send_message), 0);
         
         if (atoi(send_message) == 1) {
-            handle_login(username, password);
+            handle_login(username, password, name);
         } else if (atoi(send_message) == 3) {
             handle_register(username, password, name);
         } else {
@@ -304,6 +306,8 @@ int main(int argc, char *argv[]) {
     }
     char message[MAX_SIZE];
     char buffer[MAX_SIZE];
+
+    printf("Client name: %s\n", name);
 
     while(1){
         if(flag) {
@@ -375,6 +379,7 @@ int main(int argc, char *argv[]) {
             } else {
                 if (is_login) {
                     sprintf(buffer, "%s: %s\n", name, message);
+                    printf("Name: %s send message: %s\nBuffer: %s\n", name, message, buffer);
                     send(client_sock, buffer, strlen(buffer), 0);
                 } else {
                     send(client_sock, message, strlen(message), 0);
