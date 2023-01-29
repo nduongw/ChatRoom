@@ -203,6 +203,7 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid != uid) {
+                fseek(fptr, 0, SEEK_SET);
                 char flag[20] = "recvfile";
                 int offset_copy = offset;
                 bzero(message, MAX_SIZE);
@@ -233,9 +234,8 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
 
                     count++;
                 }
+                printf("Send to %s done!\n", clients[i]->name);
 			}
-
-            fseek(fptr, 0, SEEK_SET);
 		}
 	}
 
