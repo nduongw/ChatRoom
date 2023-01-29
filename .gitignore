@@ -2,3 +2,6 @@
 server
 client
 login
+*.txt
+*.jpg
+*.jpeg

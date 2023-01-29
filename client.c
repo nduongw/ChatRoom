@@ -213,15 +213,15 @@ void recv_msg_handler() {
             }
             }
             if (check) {
-                split_buffer(received_message, message, send_message);
+                split_buffer(message, message_copy, send_message);
             } else {
                 strcpy(message_copy, message);
             }
 
-            if (strcmp(message, "Logined") == 0) {
-                printf("User has logined!\n");
+            if (strcmp(message_copy, "Logined") == 0) {
                 is_login = 1;
                 strcpy(name, send_message);
+                continue;
             }
             printf("%s\n", message);
         }
@@ -268,6 +268,7 @@ int main(int argc, char *argv[]) {
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char choice[MAX_SIZE];
+    char buffer[MAX_SIZE];
 
     bzero(send_message, 1024);
     strcpy(send_message, "Hello from client");
@@ -304,10 +305,6 @@ int main(int argc, char *argv[]) {
         printf("Error: pthread\n");
         return -1;
     }
-    char message[MAX_SIZE];
-    char buffer[MAX_SIZE];
-
-    printf("Client name: %s\n", name);
 
     while(1){
         if(flag) {
@@ -338,8 +335,6 @@ int main(int argc, char *argv[]) {
                 if (fptr == NULL) {
                     printf("Cant open file to read\n");
                     break;
-                } else {
-                    printf("Opened file!\n");
                 }
                 send(client_sock, message, sizeof(message), 0);
                 bzero(message, MAX_SIZE);
@@ -379,7 +374,6 @@ int main(int argc, char *argv[]) {
             } else {
                 if (is_login) {
                     sprintf(buffer, "%s: %s\n", name, message);
-                    printf("Name: %s send message: %s\nBuffer: %s\n", name, message, buffer);
                     send(client_sock, buffer, strlen(buffer), 0);
                 } else {
                     send(client_sock, message, strlen(message), 0);
