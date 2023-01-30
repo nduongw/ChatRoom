@@ -203,7 +203,12 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->uid != uid) {
-                fseek(fptr, 0, SEEK_SET);
+                fptr = fopen(server_file, "r");
+                if (fptr == NULL) {
+                    printf("Cant open file to read\n");
+                    return;
+                }
+
                 char flag[20] = "recvfile";
                 int offset_copy = offset;
                 bzero(message, MAX_SIZE);
@@ -300,22 +305,24 @@ void block_friend() {
     return;
 }
 
-// void send_message_to_group(char *message, int uid) {
-//     pthread_mutex_lock(&clients_mutex);
+void send_message_to_group(char *message, int uid, int group_uid[], int length) {
+    pthread_mutex_lock(&clients_mutex);
 
-//     for(int i = 0;i < MAX_CLIENTS; i++) {
-// 		if(clients[i]) {
-// 			if(clients[i]->uid != uid) {
-// 				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
-// 					perror("ERROR: write to descriptor failed");
-// 					break;
-// 				}
-// 			}
-// 		}
-// 	}
+    for(int i = 0;i < MAX_CLIENTS; i++) {
+		if(clients[i]) {
+            for (int j = 0; j < length; j++) {
+                if(clients[i]->uid == group_uid[j]) {
+                    if(write(clients[i]->sockfd, message, strlen(message)) < 0){
+                        perror("ERROR: write to descriptor failed");
+                        break;
+                    }
+                }
+            } 
+		}
+	}
 
-//     pthread_mutex_unlock(&clients_mutex);
-// }
+    pthread_mutex_unlock(&clients_mutex);
+}
 
 void *handle_client() {
     char choice_str[MAX_SIZE];
@@ -511,11 +518,7 @@ void *handle_client() {
                     }
                     fclose(fptr);
                     printf("Get file!\n");
-                    fptr = fopen(server_file, "r");
-                    if (fptr == NULL) {
-                        printf("Cant open file to read\n");
-                        return NULL;
-                    }
+
                     send_file_to_client(fptr, server_file, file_length, full_chunk_size, offset, client_info->uid);
                 } else if (strlen(buffer_out) > 0) {
                     printf("Buffer out: %s", buffer_out);
@@ -528,6 +531,15 @@ void *handle_client() {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
                         send_message_to_one(new_message, client_info->uid, 1);
+                    } else if (strcmp(option, "group") == 0) {
+                        int group_uid[20];
+                        int length;
+                        int group_id = 2;
+                        get_group_members_id(db, stmt, group_id, group_uid, &length);
+                        // for (int i = 0; i < length; i++) {
+                        //     printf("Member id: %d\t", group_uid[i]);
+                        // }
+                        send_message_to_group(new_message, client_info->uid, group_uid, length);
                     }
                 }
             } else if (receive == 0 || strcmp(buffer_out, "exit") == 0){

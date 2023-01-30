@@ -21,7 +21,7 @@ socklen_t addr_size;
 char received_message[1024];
 char send_message[1024];
 char message[1024];
-char name[MAX_SIZE];
+char name[100];
 int n;
 int is_login = 0;
 int check = 0;
@@ -172,7 +172,7 @@ void recv_msg_handler() {
 
         if (strcmp(flag, "recvfile") == 0) {
             FILE *fptr;
-            char client_file[100];
+            char client_file[200];
             
             sprintf(client_file, "%s_%s", name, server_file);
 
@@ -290,6 +290,9 @@ int main(int argc, char *argv[]) {
             handle_login(username, password, name);
         } else if (atoi(send_message) == 3) {
             handle_register(username, password, name);
+        } else if (atoi(send_message) == 4) {
+            printf("Bye!\n");
+            return -1;
         } else {
             handle_invalid_input();
         }
@@ -351,7 +354,7 @@ int main(int argc, char *argv[]) {
 
                 full_chunk_size = file_length / NUM_CHUNK;
                 offset = file_length % NUM_CHUNK;
-                sprintf(message, "%d", file_length);
+                sprintf(message, "%d", (int)file_length);
                 send(client_sock, message, sizeof(message), 0);
                 printf("Send to server:%s\n", message);
                 int count = 0;
