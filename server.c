@@ -111,59 +111,6 @@ void handle_register(char username[], char password[], char name[]) {
     }
 }
 
-void split_buffer(char *buffer_out, char *option, char *message, char *name) {
-    int count_o = 0;
-    int count_n = 0;
-    int count_m = 0;
-    
-    for (int i = 0; i < strlen(buffer_out); i++) {
-        if (buffer_out[i] != ':') {
-            name[count_n++] = buffer_out[i];
-        } else {
-            break;
-        }
-    }
-
-    name[count_n] = '\0';
-
-    for (int i = count_n + 2; i < strlen(buffer_out); i++) {
-        if (buffer_out[i] != '&') {
-            option[count_o++] = buffer_out[i];
-        } else {
-            break;
-        }
-    }
-
-    option[count_o] = '\0';
-
-    for (int i = count_n + count_o + 3; i < strlen(buffer_out); i++) {
-        message[count_m++] = buffer_out[i];
-    }
-
-    message[count_m] = '\0';
-}
-
-void get_sending_option(char *buffer, char *message, char *name) {
-    int count_n = 0;
-    int count_m = 0;
-
-    for (int i = 0; i < strlen(buffer); i++) {
-        if (buffer[i] != '&') {
-            name[count_n++] = buffer[i];
-        } else {
-            break;
-        }
-    }
-
-    name[count_n] = '\0';
-
-    for (int i = count_n + 1; i < strlen(buffer); i++) {
-        message[count_m++] = buffer[i];
-    }
-
-    message[count_m] = '\0';
-}
-
 void send_message_to_all(char *message, int uid) {
     pthread_mutex_lock(&clients_mutex);
 
@@ -210,12 +157,6 @@ void send_message_to_client(char *message, int uid) {
 	}
 
     pthread_mutex_unlock(&clients_mutex);
-}
-
-const char *get_filename_ext(const char *filename) {
-    const char *dot = strrchr(filename, '.');
-    if(!dot || dot == filename) return "";
-    return dot + 1;
 }
 
 void send_file_to_client(FILE *fptr, char *server_file, int file_length, int full_chunk_size, int offset, int uid) {

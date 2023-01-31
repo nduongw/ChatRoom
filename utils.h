@@ -47,4 +47,8 @@ void traverse_list(list_node *list);
 
 void filter_message(list_node *bad_words_list, char *message);
 
+void split_buffer(char *buffer_out, char *option, char *message, char *name);
+void get_sending_option(char *buffer, char *message, char *name);
+const char *get_filename_ext(const char *filename);
+
 #endif
