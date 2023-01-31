@@ -367,7 +367,6 @@ void *handle_client() {
         }
         
         bzero(buffer_out, MAX_SIZE);
-
         sprintf(buffer_out, "%s has online\n", client_info->name);
         printf("%s", buffer_out);
         printf("%s user id: %d\n", client_info->name, client_info->uid);
@@ -377,10 +376,9 @@ void *handle_client() {
             bzero(buffer_out, 1024);
             strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\n4.Online user\nYour choice: ");
             send_message_to_client(buffer_out, client_info->uid);
-
             bzero(buffer_out, MAX_SIZE);
-            int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
 
+            int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
             int choice = atoi(buffer_out);
 
             switch(choice) {
@@ -590,8 +588,6 @@ void *handle_client() {
         }
     }
 
-    
-
     close(client_info->sockfd);
     queue_remove(clients_mutex, clients, client_info->uid);
     free(client_info);
@@ -626,16 +622,15 @@ int main(int argc, char *argv[]) {
     char word[100];
     while (1) {
         fgets(word, 100, file);
-
         word[strlen(word) - 1] = '\0';
 
         if (first) {
             bad_words_list = list_create(word);
             first = 0;
         }
-
+        
         list_node *new_node = list_insert_end(bad_words_list, word);
-
+        
         if (feof(file)) {
             break;
         }
@@ -649,12 +644,10 @@ int main(int argc, char *argv[]) {
     printf("TCP Socket created!\n");
 
     sqlite3_open("chat_room.db", &db);
-
 	if (db == NULL) {
 		printf("Failed to open DB\n");
 		return 0;
 	}
-
     printf("Read database successful\n");
 
     memset(&server_addr, '\0', sizeof(server_addr));
@@ -667,16 +660,13 @@ int main(int argc, char *argv[]) {
         perror("Bind error");
         exit(1);
     }
-
     printf("Bind to port number : %d\n", atoi(argv[1]));
 
     listen(server_sock, 10);
     printf("Listening...\n\n");
 
     int sin_size = sizeof(client_addr);
-
     char choice_str[MAX_SIZE];
-
     int is_signin = 0;
 
     while(1) {
@@ -687,8 +677,8 @@ int main(int argc, char *argv[]) {
     }
 
     sqlite3_finalize(stmt);
-
 	sqlite3_close(db);
+    close(server_sock);
 
     return 0;
 }

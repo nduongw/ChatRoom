@@ -22,11 +22,10 @@ char received_message[1024];
 char send_message[1024];
 char message[1024];
 char name[100];
-int n;
+int n, full_chunk_size, offset;
 int is_login = 0;
 int check = 0;
 
-int full_chunk_size, offset;
 char file_name[50];
 FILE *file;
 
@@ -340,12 +339,10 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 send(client_sock, message, sizeof(message), 0);
-                printf("Send to server:%s\n", message);
                 
                 bzero(message, MAX_SIZE);
                 strcpy(message, file_name);
                 send(client_sock, message, sizeof(message), 0);
-                printf("Send to server:%s\n", message);
 
                 size_t pos = ftell(fptr);
                 fseek(fptr, 0, SEEK_END);
@@ -356,7 +353,6 @@ int main(int argc, char *argv[]) {
                 offset = file_length % NUM_CHUNK;
                 sprintf(message, "%d", (int)file_length);
                 send(client_sock, message, sizeof(message), 0);
-                printf("Send to server:%s\n", message);
                 int count = 0;
                 int count2;
                 while(1) {

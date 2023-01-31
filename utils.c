@@ -118,9 +118,7 @@ int find_last_id(sqlite3 *db, sqlite3_stmt *stmt) {
         int num_cols = sqlite3_column_count(stmt);
 
         for (int i = 0; i < num_cols; i++) {
-			// printf("%d\n", sqlite3_column_int(stmt, i));
 			return sqlite3_column_int(stmt, i);
-            // strcpy(name, sqlite3_column_text(stmt, i));
         }
     }
 
@@ -193,7 +191,6 @@ void get_group_members_id(sqlite3 *db, sqlite3_stmt *stmt, int group_id, int mem
 
 
 void send_message(int client_sock, char *packet, char *messege) {
-    // printf("Sending messege: %s\n", messege);
     bzero(packet, 1024);
     strcpy(packet, messege);
     send(client_sock, packet, strlen(packet), 0);
@@ -206,7 +203,6 @@ void receive_message(int client_sock, char *received_message) {
     printf("Received messege: %s\n", received_message);
 }
 
-/* Add clients to queue */
 void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl){
 	pthread_mutex_lock(&clients_mutex);
 	for(int i=0; i < MAX_CLIENTS; ++i){
@@ -218,7 +214,6 @@ void queue_add(pthread_mutex_t clients_mutex, client_t *clients[], client_t *cl)
 	pthread_mutex_unlock(&clients_mutex);
 }
 
-/* Remove clients to queue */
 void queue_remove(pthread_mutex_t clients_mutex, client_t *clients[], int uid){
 	pthread_mutex_lock(&clients_mutex);
 	for(int i=0; i < MAX_CLIENTS; ++i){
@@ -261,9 +256,6 @@ list_node* list_create(char *data)
 	return l;
 }
 
-/* Completely destroys a list
- * Arguments: A pointer to a pointer to a list
- */
 void list_destroy(list_node **list)
 {
 	if (list == NULL) return;
@@ -272,9 +264,6 @@ void list_destroy(list_node **list)
 	}
 }
 
-/* Creates a list node and inserts it after the specified node
- * Arguments: A node to insert after and the data the new node will contain
- */
 list_node* list_insert_after(list_node *node, char *data)
 {
     // printf("Word: %s\n", data);
@@ -286,10 +275,6 @@ list_node* list_insert_after(list_node *node, char *data)
 	return new_node;
 }
 
-/* Creates a new list node and inserts it in the beginning of the list
- * Arguments: The list the node will be inserted to and the data the node will
- * contain
- */
 list_node* list_insert_beginning(list_node *list, void *data)
 {
 	list_node *new_node = list_create(data);
@@ -297,10 +282,6 @@ list_node* list_insert_beginning(list_node *list, void *data)
 	return new_node;
 }
 
-/* Creates a new list node and inserts it at the end of the list
- * Arguments: The list the node will be inserted to and the data the node will
- * contain
- */
 list_node* list_insert_end(list_node *list, char *data)
 {
 	list_node *new_node = list_create(data);
@@ -315,9 +296,6 @@ list_node* list_insert_end(list_node *list, char *data)
 	return new_node;
 }
 
-/* Removes a node from the list
- * Arguments: The list and the node that will be removed
- */
 void list_remove(list_node **list, list_node *node)
 {
 	list_node *tmp = NULL;
@@ -338,18 +316,6 @@ void list_remove(list_node **list, list_node *node)
 	}
 }
 
-/* Removes an element from a list by comparing the data pointers
- * Arguments: A pointer to a pointer to a list and the pointer to the data
- */
-// void list_remove_by_data(list_node **list, void *data)
-// {
-// 	if (list == NULL || *list == NULL || data == NULL) return;
-// 	list_remove(list, list_find_by_data(*list, data));
-// }
-
-/* Find an element in a list by the pointer to the element
- * Arguments: A pointer to a list and a pointer to the node/element
- */
 list_node* list_find_node(list_node *list, list_node *node)
 {
 	while (list) {
@@ -359,9 +325,6 @@ list_node* list_find_node(list_node *list, list_node *node)
 	return list;
 }
 
-/* Finds an elemt in a list by the data pointer
- * Arguments: A pointer to a list and a pointer to the data
- */
 int list_find_by_data(list_node *list, char *data)
 {
 	while (list) {
@@ -373,10 +336,6 @@ int list_find_by_data(list_node *list, char *data)
 	return 0;
 }
 
-/* Finds an element in the list by using the comparison function
- * Arguments: A pointer to a list, the comparison function and a pointer to the
- * data
- */
 list_node* list_find(list_node *list, int(*func)(list_node*,void*), void *data)
 {
 	if (!func) return NULL;
