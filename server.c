@@ -70,6 +70,8 @@ int handle_login(char username[], char password[], client_t *client_info) {
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
         client_info->first_join = 1;
+        client_info->is_online = 1;
+        client_info->is_inchat = 0;
         strcpy(client_info->name, name);
 
         queue_add(clients_mutex, clients, client_info);
@@ -117,7 +119,7 @@ void send_message_to_all(char *message, int uid) {
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
-			if(clients[i]->uid != uid) {
+			if((clients[i]->uid != uid) && clients[i]->is_online && clients[i]->is_inchat) {
 				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
 					perror("ERROR: write to descriptor failed");
 					break;
@@ -134,7 +136,7 @@ void send_message_to_one(char *message, int uid, int to_uid) {
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
-			if((clients[i]->uid != uid) && (clients[i]->uid == to_uid)) {
+			if((clients[i]->uid != uid) && (clients[i]->uid == to_uid) && clients[i]->is_online && clients[i]->is_inchat) {
 				if(write(clients[i]->sockfd, message, strlen(message)) < 0){
 					perror("ERROR: write to descriptor failed");
 					break;
@@ -165,7 +167,7 @@ void send_file_to_client(FILE *fptr, char *server_file, int file_length, int ful
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
-			if(clients[i]->uid != uid) {
+			if((clients[i]->uid != uid) && clients[i]->is_online && clients[i]->is_inchat) {
                 fptr = fopen(server_file, "r");
                 if (fptr == NULL) {
                     printf("Cant open file to read\n");
@@ -252,6 +254,8 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
         client_info->first_join = 1;
+        client_info->is_online = 1;
+        client_info->is_inchat = 0;
         strcpy(client_info->name, name);
 
         queue_add(clients_mutex, clients, client_info);
@@ -430,6 +434,7 @@ void *handle_client() {
             pthread_mutex_lock(&clients_mutex);
             if (client_info->first_join) {
                 strcpy(buffer_out, "Welcome to Chat room\n");
+                client_info->is_inchat = 1;
                 client_info->first_join = 0;
             }
             pthread_mutex_unlock(&clients_mutex);
@@ -448,10 +453,13 @@ void *handle_client() {
                     logout_flag = 1;
                     is_login = 0;
                     first_join = 1;
+                    client_info->is_online = 0;
+                    client_info->is_inchat = 0;
                     break;
                 } else if (strlen(buffer_out) > 0 && strcmp(buffer_out, "out") == 0) {
                     out_flag = 1;
                     client_info->first_join = 1;
+                    client_info->is_inchat = 0;
                     break;
                 } else if (strcmp(buffer_out, "sendfile") == 0) {
                     bzero(message, MAX_SIZE);
@@ -519,6 +527,7 @@ void *handle_client() {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
                         int uid = get_user_id_by_name(db, stmt, option_name);
+                        printf("User id: %d\n", uid);
                         send_message_to_one(new_message, client_info->uid, uid);
                     } else if (strcmp(option, "group") == 0) {
                         int group_uid[20];

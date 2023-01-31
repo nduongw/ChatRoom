@@ -7,6 +7,8 @@ typedef struct{
 	int uid;
 	char name[32];
 	int first_join;
+	int is_online;
+	int is_inchat;
 } client_t;
 
 typedef struct list_node {
