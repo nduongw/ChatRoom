@@ -143,6 +143,27 @@ void split_buffer(char *buffer_out, char *option, char *message, char *name) {
     message[count_m] = '\0';
 }
 
+void get_sending_option(char *buffer, char *message, char *name) {
+    int count_n = 0;
+    int count_m = 0;
+
+    for (int i = 0; i < strlen(buffer); i++) {
+        if (buffer[i] != '&') {
+            name[count_n++] = buffer[i];
+        } else {
+            break;
+        }
+    }
+
+    name[count_n] = '\0';
+
+    for (int i = count_n + 1; i < strlen(buffer); i++) {
+        message[count_m++] = buffer[i];
+    }
+
+    message[count_m] = '\0';
+}
+
 void send_message_to_all(char *message, int uid) {
     pthread_mutex_lock(&clients_mutex);
 
@@ -305,6 +326,16 @@ void block_friend() {
     return;
 }
 
+int get_online_user() {
+    int total_online = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i]) {
+            total_online++;
+        }
+    }
+    return total_online;
+}
+
 void send_message_to_group(char *message, int uid, int group_uid[], int length) {
     pthread_mutex_lock(&clients_mutex);
 
@@ -403,7 +434,7 @@ void *handle_client() {
 
         while(1) {
             bzero(buffer_out, 1024);
-            strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\nYour choice: ");
+            strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\n4.Online user\nYour choice: ");
             send_message_to_client(buffer_out, client_info->uid);
 
             bzero(buffer_out, MAX_SIZE);
@@ -421,6 +452,9 @@ void *handle_client() {
                 case 3:
                     is_chat = 1;
                     out_flag = 0;
+                    break;
+                case 4:
+                    get_online_user();
                     break;
                 default:
                     strcpy(buffer_out, "Invalid choice\n");
@@ -521,9 +555,17 @@ void *handle_client() {
 
                     send_file_to_client(fptr, server_file, file_length, full_chunk_size, offset, client_info->uid);
                 } else if (strlen(buffer_out) > 0) {
+                    char option_name[100];
+                    char option_message[1000];
                     printf("Buffer out: %s", buffer_out);
                     split_buffer(buffer_out, option, message, name);
-                    printf("Name: %s - Option: %s - Message: %s\n",name, option, message);
+                    printf("Name: %s - Option: %s - Message: %s\n",name, option, message);  
+                    if (strcmp(option, "one") == 0 || strcmp(option, "group") == 0) {
+                        get_sending_option(message, option_message, option_name);
+                        bzero(message, MAX_SIZE);
+                        strcpy(message, option_message);
+                        printf("Want to send to %s with message: %s\n", option_name, option_message);
+                    }
                     filter_message(bad_words_list, message);
                     char new_message[2048];
                     sprintf(new_message, "%s : %s", name, message);
