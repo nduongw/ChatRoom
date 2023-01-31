@@ -78,11 +78,14 @@ void handle_login(char username[], char password[], char name[]) {
 
     bzero(received_message, 1024);
     recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s\n", received_message);
-    strcpy(name, received_message);
-    printf("Client name: %s\n", name);
 
-    if (strlen(received_message) > 2) {
+    if (strcmp(received_message, "Your account does not exist or wrong password") == 0) {
+        printf("%s\n", received_message);
+    }
+
+    strcpy(name, received_message);
+
+    if (strcmp(received_message, "Your account does not exist or wrong password") != 0) {
         is_login = 1;
     }
 

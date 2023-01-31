@@ -6,6 +6,7 @@ typedef struct{
 	int sockfd;
 	int uid;
 	char name[32];
+	int first_join;
 } client_t;
 
 typedef struct list_node {

@@ -69,6 +69,7 @@ int handle_login(char username[], char password[], client_t *client_info) {
         client_info->address = client_addr;
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
+        client_info->first_join = 1;
         strcpy(client_info->name, name);
 
         queue_add(clients_mutex, clients, client_info);
@@ -250,6 +251,7 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
         client_info->address = client_addr;
         client_info->sockfd = client_sock;
         client_info->uid = user_id;
+        client_info->first_join = 1;
         strcpy(client_info->name, name);
 
         queue_add(clients_mutex, clients, client_info);
@@ -366,12 +368,14 @@ void *handle_client() {
             break;
         }
         
-        bzero(buffer_out, MAX_SIZE);
-        sprintf(buffer_out, "%s has online\n", client_info->name);
-        printf("%s", buffer_out);
-        printf("%s user id: %d\n", client_info->name, client_info->uid);
-        send_message_to_all(buffer_out, client_info->uid);
-
+        if (out_flag == 0) {
+            bzero(buffer_out, MAX_SIZE);
+            sprintf(buffer_out, "%s has online\n", client_info->name);
+            printf("%s", buffer_out);
+            printf("%s user id: %d\n", client_info->name, client_info->uid);
+            send_message_to_all(buffer_out, client_info->uid);
+        }
+        
         while(1) {
             bzero(buffer_out, 1024);
             strcpy(buffer_out, "----Chat room----\n1.Create new group chat\n2.Block user\n3.Go to chat\n4.Online user\nYour choice: ");
@@ -422,12 +426,14 @@ void *handle_client() {
                 break;
             }
             bzero(buffer_out, MAX_SIZE);
-            if (first_join) {
-                strcpy(buffer_out, "Welcome to Chat room\n");
-                first_join = 0;
-            }
 
-            printf("First join: %d\n", first_join);
+            pthread_mutex_lock(&clients_mutex);
+            if (client_info->first_join) {
+                strcpy(buffer_out, "Welcome to Chat room\n");
+                client_info->first_join = 0;
+            }
+            pthread_mutex_unlock(&clients_mutex);
+
             send_message_to_client(buffer_out, client_info->uid);
 
             bzero(buffer_out, MAX_SIZE);
@@ -445,7 +451,7 @@ void *handle_client() {
                     break;
                 } else if (strlen(buffer_out) > 0 && strcmp(buffer_out, "out") == 0) {
                     out_flag = 1;
-                    first_join = 1;
+                    client_info->first_join = 1;
                     break;
                 } else if (strcmp(buffer_out, "sendfile") == 0) {
                     bzero(message, MAX_SIZE);
@@ -612,7 +618,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    file = fopen("vn_bad_words.txt", "r");
+    file = fopen("demo_bad_words.txt", "r");
     if (!file) {
         printf("Cant open file to read\n");
         return -1;
