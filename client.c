@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
     char username[MAX_SIZE];
     char password[MAX_SIZE];
     char choice[MAX_SIZE];
-    char buffer[MAX_SIZE];
+    char buffer[2048];
 
     bzero(send_message, 1024);
     strcpy(send_message, "Hello from client");
@@ -390,7 +390,7 @@ int main(int argc, char *argv[]) {
             }
 
             bzero(message, MAX_SIZE);
-            bzero(buffer, MAX_SIZE);
+            bzero(buffer, 2048);
         }
         catch_ctrl_c_and_exit(2);
     }

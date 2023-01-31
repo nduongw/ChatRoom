@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <ctype.h>
-#include "utils.c"
 #include <sqlite3.h> 
 #include <signal.h>
+#include "utils.c"
 
 sqlite3 *db;
 sqlite3_stmt *stmt;
@@ -22,6 +22,8 @@ char received_message[1024];
 int n, is_login = 0;
 int first_join = 1;
 
+list_node *bad_words_list = NULL;
+
 pthread_t tid;
 
 client_t *clients[MAX_CLIENTS];
@@ -32,8 +34,6 @@ char buffer_out[MAX_SIZE];
 int full_chunk_size, offset;
 char file_ext[10]; // file extension of the input file
 char message[MAX_SIZE];
-FILE *file;
-
 
 int handle_login(char username[], char password[], client_t *client_info) {
     char message[MAX_SIZE] = "Input your account: ";
@@ -274,7 +274,7 @@ int handle_login_1(char username[], char password[], client_t *client_info) {
 
         return 0;
     } else {
-        char name[MAX_SIZE];
+        char name[100];
         int user_id;
         get_user_info(db, stmt, username, password, name, &user_id);
         printf("Name: %s - User id: %d\n", name, user_id);
@@ -328,7 +328,7 @@ void *handle_client() {
     char choice_str[MAX_SIZE];
     char username[MAX_SIZE];
     char password[MAX_SIZE];
-    char name[MAX_SIZE];
+    char name[100];
     char option[MAX_SIZE];
     int leave_flag = 0;
     int logout_flag = 0;
@@ -479,7 +479,7 @@ void *handle_client() {
                     recv(client_info->sockfd, message, MAX_SIZE, 0);
                     printf("Client send: %s\n", message);
 
-                    char server_file[100];
+                    char server_file[2048];
 
                     sprintf(server_file, "server_%s", message);
                     
@@ -524,7 +524,8 @@ void *handle_client() {
                     printf("Buffer out: %s", buffer_out);
                     split_buffer(buffer_out, option, message, name);
                     printf("Name: %s - Option: %s - Message: %s\n",name, option, message);
-                    char new_message[MAX_SIZE];
+                    filter_message(bad_words_list, message);
+                    char new_message[2048];
                     sprintf(new_message, "%s : %s", name, message);
                     printf("%s\n", new_message);
                     if (strcmp(option, "all") == 0) {
@@ -618,6 +619,7 @@ void *handle_client() {
 int main(int argc, char *argv[]) {
     char *server_ip = "127.0.0.1";
     int option = 1;
+    FILE *file;
 
     //check number of parameters
     if (argc != 2) {
@@ -628,6 +630,31 @@ int main(int argc, char *argv[]) {
     if (atoi(argv[1]) < 0 || atoi(argv[1]) > 65536) {
         printf("Invalid port number\n");
         return -1;
+    }
+
+    file = fopen("vn_bad_words.txt", "r");
+    if (!file) {
+        printf("Cant open file to read\n");
+        return -1;
+    }
+
+    int first = 1;
+    char word[100];
+    while (1) {
+        fgets(word, 100, file);
+
+        word[strlen(word) - 1] = '\0';
+
+        if (first) {
+            bad_words_list = list_create(word);
+            first = 0;
+        }
+
+        list_node *new_node = list_insert_end(bad_words_list, word);
+
+        if (feof(file)) {
+            break;
+        }
     }
 
     server_sock = socket(AF_INET, SOCK_STREAM, 0);

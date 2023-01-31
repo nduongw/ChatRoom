@@ -249,3 +249,239 @@ void traverse_queue(client_t *clients[]) {
 		}
 	}
 }
+
+list_node* list_create(char *data)
+{
+	list_node *l = malloc(sizeof(list_node));
+	if (l != NULL) {
+		l->next = NULL;
+		strcpy(l->data, data);
+	}
+
+	return l;
+}
+
+/* Completely destroys a list
+ * Arguments: A pointer to a pointer to a list
+ */
+void list_destroy(list_node **list)
+{
+	if (list == NULL) return;
+	while (*list != NULL) {
+		list_remove(list, *list);
+	}
+}
+
+/* Creates a list node and inserts it after the specified node
+ * Arguments: A node to insert after and the data the new node will contain
+ */
+list_node* list_insert_after(list_node *node, char *data)
+{
+    // printf("Word: %s\n", data);
+	list_node *new_node = list_create(data);
+	if (new_node) {
+		new_node->next = node->next;
+		node->next = new_node;
+	}
+	return new_node;
+}
+
+/* Creates a new list node and inserts it in the beginning of the list
+ * Arguments: The list the node will be inserted to and the data the node will
+ * contain
+ */
+list_node* list_insert_beginning(list_node *list, void *data)
+{
+	list_node *new_node = list_create(data);
+	if (new_node != NULL) { new_node->next = list; }
+	return new_node;
+}
+
+/* Creates a new list node and inserts it at the end of the list
+ * Arguments: The list the node will be inserted to and the data the node will
+ * contain
+ */
+list_node* list_insert_end(list_node *list, char *data)
+{
+	list_node *new_node = list_create(data);
+	if (new_node != NULL) {
+		for(list_node *it = list; it != NULL; it = it->next) {
+			if (it->next == NULL) {
+				it->next = new_node;
+				break;
+			}
+		}
+	}
+	return new_node;
+}
+
+/* Removes a node from the list
+ * Arguments: The list and the node that will be removed
+ */
+void list_remove(list_node **list, list_node *node)
+{
+	list_node *tmp = NULL;
+	if (list == NULL || *list == NULL || node == NULL) return;
+
+	if (*list == node) {
+		*list = (*list)->next;
+		free(node);
+		node = NULL;
+	} else {
+		tmp = *list;
+		while (tmp->next && tmp->next != node) tmp = tmp->next;
+		if (tmp->next) {
+			tmp->next = node->next;
+			free(node);
+			node = NULL;
+		}
+	}
+}
+
+/* Removes an element from a list by comparing the data pointers
+ * Arguments: A pointer to a pointer to a list and the pointer to the data
+ */
+// void list_remove_by_data(list_node **list, void *data)
+// {
+// 	if (list == NULL || *list == NULL || data == NULL) return;
+// 	list_remove(list, list_find_by_data(*list, data));
+// }
+
+/* Find an element in a list by the pointer to the element
+ * Arguments: A pointer to a list and a pointer to the node/element
+ */
+list_node* list_find_node(list_node *list, list_node *node)
+{
+	while (list) {
+		if (list == node) break;
+		list = list->next;
+	}
+	return list;
+}
+
+/* Finds an elemt in a list by the data pointer
+ * Arguments: A pointer to a list and a pointer to the data
+ */
+int list_find_by_data(list_node *list, char *data)
+{
+	while (list) {
+		if (strcmp(list->data, data) == 0) {
+            return 1;
+        } 
+		list = list->next;
+	}
+	return 0;
+}
+
+/* Finds an element in the list by using the comparison function
+ * Arguments: A pointer to a list, the comparison function and a pointer to the
+ * data
+ */
+list_node* list_find(list_node *list, int(*func)(list_node*,void*), void *data)
+{
+	if (!func) return NULL;
+	while(list) {
+		if (func(list, data)) break;
+		list = list->next;
+	}
+	return list;
+}
+
+void traverse_list(list_node *list) {
+    while (list->next != NULL) {
+        list = list->next;
+	}
+}
+
+void filter_message(list_node *bad_words_list, char *message) {
+    message[strlen(message) - 1] = '\0';
+
+    int check = 0;
+    int count = 0;
+    char word_list[100][100];
+    char filtered_message[1024];
+    int flag[100] = {0};
+    char *token = strtok(message, " ");
+    
+    while(token != NULL) {
+        strcpy(word_list[count], token);
+        count++;
+        token = strtok(NULL, " ");
+    }
+
+    int i = 0;
+    while(i < count) {
+        char search_word[1024];
+        int node;
+
+        strcpy(search_word, word_list[i]);
+        node = list_find_by_data(bad_words_list, search_word);
+        if (node) {
+            flag[i] = 1;
+            i++;
+        } else {
+            if (i >= count) {
+                break;
+            }
+            bzero(search_word, 1024);
+            sprintf(search_word, "%s %s", word_list[i], word_list[i + 1]);
+            node = list_find_by_data(bad_words_list, search_word);
+            if (node) {
+                flag[i] = 1;
+                flag[i+1] = 1;
+                i += 2;
+            } else {
+                if (i >= count) {
+                    break;
+                }
+                bzero(search_word, 1024);
+                sprintf(search_word, "%s %s %s", word_list[i], word_list[i + 1], word_list[i + 2]);
+                node = list_find_by_data(bad_words_list, search_word);
+                if (node) {
+                    flag[i] = 1;
+                    flag[i+1] = 1;
+                    flag[i+2] = 1;
+                    i += 3;
+                } else {
+                    if (i >= count) {
+                        break;
+                    }
+                    bzero(search_word, 1024);
+                    sprintf(search_word, "%s %s %s %s", word_list[i], word_list[i + 1], word_list[i + 2], word_list[i + 3]);
+                    node = list_find_by_data(bad_words_list, search_word);
+                    if (node) {
+                        flag[i] = 1;
+                        flag[i+1] = 1;
+                        flag[i+2] = 1;
+                        flag[i+3] = 1;
+                        i += 4;
+                    } else {
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < count; i++) {
+        if (flag[i]) {
+            bzero(word_list[i], 100);
+            strcpy(word_list[i], "***");
+        }
+    }
+
+    for (i = 0; i < count; i++) {
+        if (i == 0) {
+            strcpy(filtered_message, word_list[i]);
+        } else {
+            strcat(filtered_message, word_list[i]);
+        }
+
+        if (i != count - 1) {
+            strcat(filtered_message, " ");
+        }
+
+    }
+
+    strcpy(message, filtered_message);
+}
