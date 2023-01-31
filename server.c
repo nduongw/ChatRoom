@@ -514,11 +514,12 @@ void *handle_client() {
                     if (strcmp(option, "all") == 0) {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
-                        send_message_to_one(new_message, client_info->uid, 1);
+                        int uid = get_user_id_by_name(db, stmt, option_name);
+                        send_message_to_one(new_message, client_info->uid, uid);
                     } else if (strcmp(option, "group") == 0) {
                         int group_uid[20];
                         int length;
-                        int group_id = 2;
+                        int group_id = atoi(option_name);
                         get_group_members_id(db, stmt, group_id, group_uid, &length);
                         // for (int i = 0; i < length; i++) {
                         //     printf("Member id: %d\t", group_uid[i]);
