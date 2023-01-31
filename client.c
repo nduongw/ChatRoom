@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/ioctl.h>
+#include <ctype.h>
 
 #define NUM_CHUNK 20
 
@@ -225,7 +226,12 @@ void recv_msg_handler() {
                 strcpy(name, send_message);
                 continue;
             }
-            printf("%s\n", message);
+
+            if ((strlen(message) == 1) && isdigit(atoi(message))) {
+                printf("Total online users: %s\n", message);
+            } else {
+                printf("%s\n", message);
+            }
         }
     }
 

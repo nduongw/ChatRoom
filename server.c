@@ -276,7 +276,7 @@ void block_friend() {
 int get_online_user() {
     int total_online = 0;
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i]) {
+        if (clients[i] && clients[i]->is_online) {
             total_online++;
         }
     }
@@ -387,6 +387,20 @@ void *handle_client() {
             bzero(buffer_out, MAX_SIZE);
 
             int receive = recv(client_info->sockfd, buffer_out, MAX_SIZE, 0);
+
+            if (strcmp(buffer_out, "quit") == 0) {
+                sprintf(buffer_out, "%s has offline\n", client_info->name);
+                printf("%s", buffer_out);
+                send_message_to_all(buffer_out, client_info->uid);
+                out_flag = 1;
+                logout_flag = 1;
+                is_login = 0;
+                first_join = 1;
+                client_info->is_online = 0;
+                client_info->is_inchat = 0;
+                break;
+            }
+
             int choice = atoi(buffer_out);
 
             switch(choice) {
@@ -401,7 +415,10 @@ void *handle_client() {
                     out_flag = 0;
                     break;
                 case 4:
-                    get_online_user();
+                    int total_online = get_online_user();
+                    bzero(buffer_out, MAX_SIZE);
+                    sprintf(buffer_out, "%d", total_online);
+                    send_message_to_client(buffer_out, client_info->uid);
                     break;
                 default:
                     strcpy(buffer_out, "Invalid choice\n");
@@ -450,6 +467,7 @@ void *handle_client() {
                     sprintf(buffer_out, "%s has offline\n", client_info->name);
                     printf("%s", buffer_out);
                     send_message_to_all(buffer_out, client_info->uid);
+                    out_flag = 1;
                     logout_flag = 1;
                     is_login = 0;
                     first_join = 1;
