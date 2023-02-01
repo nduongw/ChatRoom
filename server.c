@@ -645,7 +645,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    file = fopen("demo_bad_words.txt", "r");
+    file = fopen("vn_bad_words.txt", "r");
     if (!file) {
         printf("Cant open file to read\n");
         return -1;
@@ -686,7 +686,7 @@ int main(int argc, char *argv[]) {
     memset(&server_addr, '\0', sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(atoi(argv[1]));
-    server_addr.sin_addr.s_addr = inet_addr(server_ip);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     n = bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (n < 0) {
