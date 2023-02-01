@@ -502,10 +502,12 @@ void *handle_client() {
                     file_length = atoi(message);
                     full_chunk_size = file_length / NUM_CHUNK;
                     offset = file_length % NUM_CHUNK;
+                    // int total = 0;
 
                     while(1) {
                         bzero(message, MAX_SIZE);
                         n = recv(client_info->sockfd, message, MAX_SIZE, 0);
+                        printf("Get data: %s\n", message);
                         if (strcmp(message, "done") == 0) {
                             break;
                         }
