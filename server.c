@@ -415,10 +415,10 @@ void *handle_client() {
                     out_flag = 0;
                     break;
                 case 4:
-                    int total_online = get_online_user();
-                    bzero(buffer_out, MAX_SIZE);
-                    sprintf(buffer_out, "%d", total_online);
-                    send_message_to_client(buffer_out, client_info->uid);
+                    // int total_online = get_online_user();
+                    // bzero(buffer_out, MAX_SIZE);
+                    // sprintf(buffer_out, "%d", total_online);
+                    // send_message_to_client(buffer_out, client_info->uid);
                     break;
                 default:
                     strcpy(buffer_out, "Invalid choice\n");
@@ -544,9 +544,9 @@ void *handle_client() {
                     if (strcmp(option, "all") == 0) {
                         send_message_to_all(new_message, client_info->uid);
                     } else if (strcmp(option, "one") == 0) {
-                        int uid = get_user_id_by_name(db, stmt, option_name);
-                        printf("User id: %d\n", uid);
-                        send_message_to_one(new_message, client_info->uid, uid);
+                        // int uid = get_user_id_by_name(db, stmt, option_name);
+                        // printf("User id: %d\n", uid);
+                        // send_message_to_one(new_message, client_info->uid, uid);
                     } else if (strcmp(option, "group") == 0) {
                         int group_uid[20];
                         int length;

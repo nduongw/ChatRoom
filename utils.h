@@ -23,7 +23,7 @@ typedef struct list_node {
 int check_account_exist(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[]);
 void get_user_info(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[], int *id);
 void get_user_info_by_id(sqlite3 *db, sqlite3_stmt *stmt, int user_id, char *name);
-int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name);
+// int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name);
 int find_last_id(sqlite3 *db, sqlite3_stmt *stmt);
 int register_new_account(sqlite3 *db, sqlite3_stmt *stmt, char username[], char password[], char name[]);
 void create_new_group(sqlite3 *db, sqlite3_stmt *stmt);

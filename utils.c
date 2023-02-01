@@ -84,31 +84,31 @@ void get_user_info_by_id(sqlite3 *db, sqlite3_stmt *stmt, int user_id, char *nam
     return;
 }
 
-int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name) {
-	char *sql = "SELECT id FROM users WHERE username = ?";
-    int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
-    if (check == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, name, strlen(name), SQLITE_STATIC);
-    } else {
-        printf("Fail to prepare statement\n");
-        return -1;
-    }
+// int get_user_id_by_name(sqlite3 *db, sqlite3_stmt *stmt, char *name) {
+// 	char *sql = "SELECT id FROM users WHERE username = ?";
+//     int check = sqlite3_prepare(db, sql, -1, &stmt, NULL);
+//     if (check == SQLITE_OK) {
+//         sqlite3_bind_text(stmt, 1, name, strlen(name), SQLITE_STATIC);
+//     } else {
+//         printf("Fail to prepare statement\n");
+//         return -1;
+//     }
 
-    while(sqlite3_step(stmt) != SQLITE_DONE) {
-        int num_cols = sqlite3_column_count(stmt);
+//     while(sqlite3_step(stmt) != SQLITE_DONE) {
+//         int num_cols = sqlite3_column_count(stmt);
 
-        for (int i = 0; i < num_cols; i++) {
-			switch (sqlite3_column_type(stmt, i)) {
-			case (SQLITE_INTEGER):
-				int user_id = sqlite3_column_int(stmt, i);
-				return user_id;
-				break;
-			default:
-				break;
-			}
-        }
-    }
-}
+//         for (int i = 0; i < num_cols; i++) {
+// 			switch (sqlite3_column_type(stmt, i)) {
+// 			case (SQLITE_INTEGER):
+// 				int user_id = sqlite3_column_int(stmt, i);
+// 				return user_id;
+// 				break;
+// 			default:
+// 				break;
+// 			}
+//         }
+//     }
+// }
 
 int find_last_id(sqlite3 *db, sqlite3_stmt *stmt) {
 	char *sql = "SELECT id FROM users ORDER BY id DESC";
