@@ -373,49 +373,56 @@ void filter_message(list_node *bad_words_list, char *message) {
         char search_word[1024];
         int node;
 
-        strcpy(search_word, word_list[i]);
+        if (i >= count) {
+            break;
+        }
+        bzero(search_word, 1024);
+        sprintf(search_word, "%s %s %s %s", word_list[i], word_list[i + 1], word_list[i + 2], word_list[i + 3]);
         node = list_find_by_data(bad_words_list, search_word);
         if (node) {
             flag[i] = 1;
-            i++;
+            flag[i+1] = 1;
+            flag[i+2] = 1;
+            flag[i+3] = 1;
+            i += 4;
         } else {
             if (i >= count) {
                 break;
             }
             bzero(search_word, 1024);
-            sprintf(search_word, "%s %s", word_list[i], word_list[i + 1]);
+            sprintf(search_word, "%s %s %s", word_list[i], word_list[i + 1], word_list[i + 2]);
             node = list_find_by_data(bad_words_list, search_word);
             if (node) {
                 flag[i] = 1;
                 flag[i+1] = 1;
-                i += 2;
+                flag[i+2] = 1;
+                i += 3;
             } else {
                 if (i >= count) {
                     break;
                 }
                 bzero(search_word, 1024);
-                sprintf(search_word, "%s %s %s", word_list[i], word_list[i + 1], word_list[i + 2]);
+                sprintf(search_word, "%s %s", word_list[i], word_list[i + 1]);
                 node = list_find_by_data(bad_words_list, search_word);
                 if (node) {
                     flag[i] = 1;
                     flag[i+1] = 1;
-                    flag[i+2] = 1;
-                    i += 3;
+                    i += 2;
                 } else {
                     if (i >= count) {
                         break;
                     }
                     bzero(search_word, 1024);
-                    sprintf(search_word, "%s %s %s %s", word_list[i], word_list[i + 1], word_list[i + 2], word_list[i + 3]);
+                    strcpy(search_word, word_list[i]);
                     node = list_find_by_data(bad_words_list, search_word);
                     if (node) {
                         flag[i] = 1;
-                        flag[i+1] = 1;
-                        flag[i+2] = 1;
-                        flag[i+3] = 1;
-                        i += 4;
+                        i++;
                     } else {
                         i++;
+                        if (i >= count) {
+                            break;
+                        }
                     }
                 }
             }
