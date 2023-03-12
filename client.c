@@ -11,142 +11,63 @@
 #include <sys/ioctl.h>
 #include <ctype.h>
 
+#define MAX_SIZE 1024
 #define NUM_CHUNK 20
 
-#define MAX_SIZE 1024
-volatile sig_atomic_t flag = 0;
+void *recv_msg_handler(void *arg) {
+    int client_sock = *(int *)arg;
+    free(arg);
 
-int client_sock;
-struct sockaddr_in server_addr;
-socklen_t addr_size;
-char received_message[1024];
-char send_message[1024];
-char message[1024];
-char name[100];
-int n, full_chunk_size, offset;
-int is_login = 0;
-int check = 0;
+    char message[1024];
+    char flag[10];
+    char server_file[200];
+    int file_length;
+    char client_name[100];
 
-char file_name[50];
-FILE *file;
+    while(1) {
+        bzero(message, 1024);
+        int n = recv(client_sock, message, 1024, 0);
 
-int is_valid_address(char *ipAddress) {
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
-    return result;
-}
+        sscanf(message, "%s %s %s %d", flag, client_name, server_file, &file_length);
+        if (strcmp(flag, "RECV") == 0) {
+            FILE *fptr;
+            char client_file[500];
+            
+            sprintf(client_file, "%s_%s", client_name, server_file);
 
-void split_buffer(char *buffer_out, char *message, char *name) {
-    int count_n = 0;
-    int count_m = 0;
-    for (int i = 0; i < strlen(buffer_out); i++) {
-        if (buffer_out[i] != '@') {
-            message[count_m++] = buffer_out[i];
+            fptr = fopen(client_file, "w");
+            if (fptr == NULL) {
+                printf("Cant open file to write\n");
+                return NULL;
+            }
+            
+            int full_chunk_size = file_length / NUM_CHUNK;
+            int offset = file_length % NUM_CHUNK;
+            int count = 0;
+
+            while(1) {
+                bzero(message, MAX_SIZE);
+                n = recv(client_sock, message, MAX_SIZE, 0);
+                if (strcmp(message, "done") == 0) {
+                    break;
+                }
+                if (n <= 0) {
+                    break;
+                }
+                if (count < NUM_CHUNK ) {
+                    fwrite(message, 1, full_chunk_size, fptr);
+                } else if (count >= NUM_CHUNK && offset != 0) {
+                    fwrite(message, 1, offset, fptr);
+                }
+
+                count++;
+            }
+            printf("\nGet file done\n");
+            fclose(fptr);
         } else {
-            break;
+            printf("%s\n", message);
         }
     }
-
-    message[count_m] = '\0';
-
-    for (int i = count_m + 1; i < strlen(buffer_out); i++) {
-        name[count_n++] = buffer_out[i];
-    }
-
-    name[count_n] = '\0';
-}
-
-void handle_login(char username[], char password[], char name[]) {
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s", received_message);
-
-    fgets(username, MAX_SIZE, stdin);
-    fflush(stdin);
-    bzero(send_message, 1024);
-    strcpy(send_message, username);
-    send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s", received_message);
-
-    fgets(password, MAX_SIZE, stdin);
-    fflush(stdin);
-    bzero(send_message, 1024);
-    strcpy(send_message, password);
-    send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-
-    if (strcmp(received_message, "Your account does not exist or wrong password") == 0) {
-        printf("%s\n", received_message);
-    }
-
-    strcpy(name, received_message);
-
-    if (strcmp(received_message, "Your account does not exist or wrong password") != 0) {
-        is_login = 1;
-    }
-
-    bzero(send_message, 1024);
-    strcpy(send_message, "Done\n");
-    send(client_sock, send_message, strlen(send_message), 0);
-}
-
-void handle_register(char username[], char password[], char name[]) {
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s", received_message);
-
-    fgets(username, MAX_SIZE, stdin);
-    fflush(stdin);
-    bzero(send_message, 1024);
-    strcpy(send_message, username);
-    send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s", received_message);
-
-    fgets(password, MAX_SIZE, stdin);
-    fflush(stdin);
-    bzero(send_message, 1024);
-    strcpy(send_message, password);
-    send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s", received_message);
-
-    fgets(name, MAX_SIZE, stdin);
-    fflush(stdin);
-    bzero(send_message, 1024);
-    strcpy(send_message, name);
-    send(client_sock, send_message, strlen(send_message), 0);
-
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s\n", received_message);
-
-    bzero(send_message, 1024);
-    strcpy(send_message, "Done\n");
-    send(client_sock, send_message, strlen(send_message), 0);
-}
-
-void handle_invalid_input() {
-    bzero(received_message, 1024);
-    recv(client_sock, received_message, MAX_SIZE, 0);
-    printf("%s: ", received_message);
-
-    bzero(send_message, 1024);
-    strcpy(send_message, "Done\n");
-    send(client_sock, send_message, strlen(send_message), 0);
-}
-
-void catch_ctrl_c_and_exit(int sig) {
-    flag = 1;
 }
 
 void str_trim_lf (char* arr, int length) {
@@ -159,96 +80,25 @@ void str_trim_lf (char* arr, int length) {
   }
 }
 
-void recv_msg_handler() {
-    while (1) {
-        char server_file[100];
-        char message_copy[MAX_SIZE];
-        int file_length;
-        char flag[30];
-        int count = 0;
-
-        bzero(message, MAX_SIZE);
-        int receive = recv(client_sock, message, MAX_SIZE, 0);
-        strcpy(message_copy, message);
-
-        sscanf(message_copy, "%s %s %d", flag, server_file, &file_length);
-
-        if (strcmp(flag, "recvfile") == 0) {
-            FILE *fptr;
-            char client_file[200];
-            
-            sprintf(client_file, "%s_%s", name, server_file);
-
-            fptr = fopen(client_file, "w");
-            if (fptr == NULL) {
-                printf("Cant open file to write\n");
-                return;
-            }
-            
-            full_chunk_size = file_length / NUM_CHUNK;
-            offset = file_length % NUM_CHUNK;
-
-            while(1) {
-                bzero(message, MAX_SIZE);
-                n = recv(client_sock, message, MAX_SIZE, 0);
-                if (strcmp(message, "done") == 0) {
-                    break;
-                }
-                if (n <= 0) {
-                    break;
-                }
-
-                if (count < NUM_CHUNK ) {
-                    fwrite(message, 1, full_chunk_size, fptr);
-                } else if (count >= NUM_CHUNK && offset != 0) {
-                    fwrite(message, 1, offset, fptr);
-                }
-
-                count++;
-            }
-            printf("\nGet file done\n");
-            fclose(fptr);
-        } else {
-            for (int i = 0; i < strlen(message); i++) {
-            if (message[i] == '@') {
-                check = 1;
-                break;
-            }
-            }
-            if (check) {
-                split_buffer(message, message_copy, send_message);
-            } else {
-                strcpy(message_copy, message);
-            }
-
-            if (strcmp(message_copy, "Logined") == 0) {
-                is_login = 1;
-                strcpy(name, send_message);
-                continue;
-            }
-
-            if ((strlen(message) == 1) && isdigit(atoi(message))) {
-                printf("Total online users: %s\n", message);
-            } else {
-                printf("%s\n", message);
-            }
+int count_space(char *buffer) {
+    int count = 0;
+    for (int i = 0; i < strlen(buffer); i++) {
+        if (buffer[i] == ' ') {
+            count += 1;
         }
     }
 
-    return;
+    return count;
 }
 
-
 int main(int argc, char *argv[]) {
+    int client_sock;
+    struct sockaddr_in server_addr;
+    socklen_t addr_size;
+    char message[1024];
+
     if (argc != 3) {
         printf("Invalid parameters\n");
-        return -1;
-    }
-
-    char ip_address[50];
-    strcpy(ip_address, argv[1]);
-    if (is_valid_address(ip_address) == 0 || is_valid_address((ip_address)) == -1) {
-        printf("Invalid IP address!");
         return -1;
     }
 
@@ -270,134 +120,84 @@ int main(int argc, char *argv[]) {
     server_addr.sin_port = htons(atoi(argv[2]));
     server_addr.sin_addr.s_addr = inet_addr(argv[1]);
 
-    connect(client_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    printf("Connected to server!\n");
-
-    char username[MAX_SIZE];
-    char password[MAX_SIZE];
-    char choice[MAX_SIZE];
-    char buffer[2048];
-
-    bzero(send_message, 1024);
-    strcpy(send_message, "Hello from client");
-    send(client_sock, send_message, strlen(send_message), 0);
-    
-    while(1) {
-        bzero(received_message, 1024);
-        recv(client_sock, received_message, MAX_SIZE, 0);
-        printf("%s: ", received_message);
-
-        fgets(choice, MAX_SIZE, stdin);
-        fflush(stdin);
-
-        bzero(send_message, 1024);
-        strcpy(send_message, choice);
-        send(client_sock, send_message, strlen(send_message), 0);
-        
-        if (atoi(send_message) == 1) {
-            handle_login(username, password, name);
-        } else if (atoi(send_message) == 3) {
-            handle_register(username, password, name);
-        } else if (atoi(send_message) == 4) {
-            printf("Bye!\n");
-            return -1;
-        } else {
-            handle_invalid_input();
-        }
-
-        if (is_login) {
-            printf("Login done\n");
-            break;
-        }
+    int n = connect(client_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (n < 0) {
+        printf("Connect failed\n");
+        return -1;
     }
 
-    pthread_t recv_msg_thread;
-    if (pthread_create(&recv_msg_thread, NULL, (void *) recv_msg_handler, NULL) != 0) {
+    printf("Connected to server!\n");
+
+    pthread_t pid;
+    int *arg = (int *)calloc(1, sizeof(int));
+    *arg = client_sock;
+    if (pthread_create(&pid, NULL, recv_msg_handler, arg) != 0) {
         printf("Error: pthread\n");
         return -1;
     }
 
-    while(1){
-        if(flag) {
-            printf("Bye\n");
+    while(1) {
+        fgets(message, 1024, stdin);
+        str_trim_lf(message, 1024);
+        fflush(stdin);
+
+        if (strncmp(message, "OUT", 3) == 0) {
+            send(client_sock, message, strlen(message), 0);
             break;
-        }
+        } else if (strncmp(message, "FILE", 4) == 0) {
+            char file_name[100];
+            int count = count_space(message);
 
-        while(1) {
-            fgets(message, MAX_SIZE, stdin);
-            str_trim_lf(message, MAX_SIZE);
-
-            if (strcmp(message, "exit") == 0) {
-                break;
-            } else if (strlen(message) > 1 && strcmp(message, "quit") == 0) {
-                is_login = 0;
-                check = 0;
-                send(client_sock, message, strlen(message), 0);
-            } else if (strlen(message) > 1 && strcmp(message, "out") == 0) {
-                check = 0;
-                send(client_sock, message, strlen(message), 0);
-            } else if (strlen(message) == 1){
-                send(client_sock, message, strlen(message), 0);
-            } else if (strcmp(message, "sendfile") == 0) {
-                printf("Input file name: ");
-                scanf("%s", file_name);
-                FILE *fptr;
-                fptr = fopen(file_name, "r");
-                if (fptr == NULL) {
-                    printf("Cant open file to read\n");
-                    break;
-                }
-                send(client_sock, message, sizeof(message), 0);
-                
-                bzero(message, MAX_SIZE);
-                strcpy(message, file_name);
-                send(client_sock, message, sizeof(message), 0);
-
-                size_t pos = ftell(fptr);
-                fseek(fptr, 0, SEEK_END);
-                size_t file_length = ftell(fptr);
-                fseek(fptr, pos, SEEK_SET);
-
-                full_chunk_size = file_length / NUM_CHUNK;
-                offset = file_length % NUM_CHUNK;
-                sprintf(message, "%d", (int)file_length);
-                send(client_sock, message, sizeof(message), 0);
-                int count = 0;
-                int count2;
-                while(1) {
-                    bzero(message, MAX_SIZE);
-                    if (count < NUM_CHUNK) {
-                        fread(message, 1, full_chunk_size, fptr);
-                    } else if(count >= NUM_CHUNK && offset != 0) {
-                        fread(message, 1, offset, fptr);
-                        offset = 0;
-                    } else {
-                        strcpy(message, "done");
-                        send(client_sock, message, sizeof(message), 0);
-                        break;
-                    }
-                    if (send(client_sock, message, sizeof(message), 0) == -1) {
-                        printf("Fail to send file\n");
-                        break;
-                    }
-                    count++;
-                }
-                fclose(fptr);
-                printf("Sent!\n");
-
-            } else {
-                if (is_login) {
-                    sprintf(buffer, "%s: %s\n", name, message);
-                    send(client_sock, buffer, strlen(buffer), 0);
-                } else {
-                    send(client_sock, message, strlen(message), 0);
-                }
+            if (count == 2) {
+                sscanf(message, "%*s %*s %s", file_name);
+            } else if (count == 3) {
+                sscanf(message, "%*s %*s %*s %s", file_name);
             }
 
-            bzero(message, MAX_SIZE);
-            bzero(buffer, 2048);
+            FILE *fptr;
+            fptr = fopen(file_name, "r");
+            if (fptr == NULL) {
+                printf("Cant open file to read\n");
+                break;
+            }
+            send(client_sock, message, sizeof(message), 0);
+
+            size_t pos = ftell(fptr);
+            fseek(fptr, 0, SEEK_END);
+            size_t file_length = ftell(fptr);
+            fseek(fptr, pos, SEEK_SET);
+
+            int full_chunk_size = file_length / NUM_CHUNK;
+            int offset = file_length % NUM_CHUNK;
+            sprintf(message, "%d", (int)file_length);
+            send(client_sock, message, sizeof(message), 0);
+            count = 0;
+            int count2;
+            while(1) {
+                bzero(message, MAX_SIZE);
+                if (count < NUM_CHUNK) {
+                    fread(message, 1, full_chunk_size, fptr);
+                } else if(count >= NUM_CHUNK && offset != 0) {
+                    fread(message, 1, offset, fptr);
+                    offset = 0;
+                } else {
+                    strcpy(message, "done");
+                    send(client_sock, message, sizeof(message), 0);
+                    break;
+                }
+                if (send(client_sock, message, sizeof(message), 0) == -1) {
+                    printf("Fail to send file\n");
+                    break;
+                }
+                count++;
+            }
+            fclose(fptr);
+            printf("Sent!\n");
+        } else {
+            send(client_sock, message, strlen(message), 0);
         }
-        catch_ctrl_c_and_exit(2);
+
+        bzero(message, 1024);
     }
 
     close(client_sock);
