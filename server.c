@@ -117,6 +117,7 @@ void handle_online_user(int client_sock) {
 			
 		}
 	}
+    strcat(client_name, "\n");
     send_message(client_sock, message, client_name);
 }
 
@@ -195,7 +196,7 @@ void handle_txt_message_one(int client_sock, char *buffer) {
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->sockfd != client_sock) {
-                if (strcmp(clients[i]->name, name) == 0) {
+                if ((strcmp(clients[i]->name, name) == 0) && clients[i]->is_inchat) {
                     for (int j = 0; j < length; j++) {
                         if (clients[i]->uid != block_uids[j]) {
                             if(send(clients[i]->sockfd, send_message, strlen(send_message), 0) < 0){
@@ -224,7 +225,7 @@ void handle_file_message_one(int client_sock, char *buffer, char *server_file, i
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
 			if(clients[i]->sockfd != client_sock) {
-                if (strcmp(clients[i]->name, name) == 0) {
+                if ((strcmp(clients[i]->name, name) == 0) && (clients[i]->is_inchat)) {
                     fptr = fopen(server_file, "r");
                     if (fptr == NULL) {
                         printf("Cant open file to read\n");
@@ -278,7 +279,7 @@ void handle_file_message_all(int client_sock, char *buffer, char *server_file, i
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
-			if(clients[i]->sockfd != client_sock) {
+			if((clients[i]->sockfd != client_sock) && clients[i]->is_inchat) {
                 fptr = fopen(server_file, "r");
                 if (fptr == NULL) {
                     printf("Cant open file to read\n");
@@ -350,7 +351,7 @@ void handle_txt_message_all(int client_sock, char *buffer) {
 
     for(int i = 0;i < MAX_CLIENTS; i++) {
 		if(clients[i]) {
-			if(clients[i]->sockfd != client_sock) {
+			if((clients[i]->sockfd != client_sock) && clients[i]->is_inchat) {
                 if (length) {
                     for (int j = 0; j < length; j++) {
                         if (clients[i]->uid != block_uids[j]) {
@@ -404,7 +405,7 @@ void handle_txt_message_group(int client_sock, char *buffer) {
                 for (int j = 0; j < length; j++) {
                     if (clients[i]->uid == group_uid[j]) {
                         for (int k = 0; k < blength; k++) {
-                            if (clients[i]->uid != block_uids[k]) {
+                            if ((clients[i]->uid != block_uids[k]) && clients[i]->is_inchat) {
                                 if(send(clients[i]->sockfd, send_message, strlen(send_message), 0) < 0){
                                     perror("ERROR: write to descriptor failed");
                                     break;
@@ -437,7 +438,7 @@ void handle_file_message_group(int client_sock, char *buffer, char *server_file,
 		if(clients[i]) {
 			if(clients[i]->sockfd != client_sock) {
                 for (int j = 0; j < length; j++) {
-                    if (clients[i]->uid == group_uid[j]) {
+                    if ((clients[i]->uid == group_uid[j]) && clients[i]->is_inchat) {
                         fptr = fopen(server_file, "r");
                         if (fptr == NULL) {
                             printf("Cant open file to read\n");
@@ -563,6 +564,7 @@ void handle_chat(int client_sock) {
                 handle_file_message_group(client_sock, buffer, server_file, file_length, full_chunk_size, offset);
             }
         } else if(strncmp(flag1, "QUIT", 4) == 0) {
+            change_inchat_status(clients, client_sock);
             break;
         }
 
@@ -603,6 +605,7 @@ void *handle_client(void *arg) {
                 } else if (strncmp(buffer, "2", 1) == 0) {
                     handle_unblock(client_sock);
                 } else if (strncmp(buffer, "3", 1) == 0) {
+                    change_inchat_status(clients, client_sock);
                     handle_chat(client_sock);
                 } else if (strncmp(buffer, "4", 1) == 0) {
                     handle_online_user(client_sock);

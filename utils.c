@@ -76,6 +76,20 @@ void traverse_queue(client_t *clients[]) {
 	}
 }
 
+void change_inchat_status(client_t *clients[], int client_sock) {
+    for(int i=0; i < MAX_CLIENTS; ++i){
+		if(clients[i]){
+            if (clients[i]->sockfd == client_sock) {
+                if (clients[i]->is_inchat == 1) {
+                    clients[i]->is_inchat = 0;
+                } else {
+                    clients[i]->is_inchat = 1;
+                }
+            }
+		}
+	}
+}
+
 list_node* list_create(char *data)
 {
 	list_node *l = malloc(sizeof(list_node));

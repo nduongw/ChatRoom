@@ -28,6 +28,7 @@ void queue_remove(pthread_mutex_t clients_mutex, client_t *clients[], int client
 int queue_find(pthread_mutex_t clients_mutex, client_t *clients[], char *username);
 client_t *queue_find_by_sockfd(pthread_mutex_t clients_mutex, client_t *clients[], int client_sock);
 void traverse_queue(client_t *clients[]);
+void change_inchat_status(client_t *clients[], int client_sock);
 
 list_node* list_create(char *data);
 void list_destroy(list_node **list);
